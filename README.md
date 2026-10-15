@@ -1,1 +1,2 @@
-hi
+Tournament Manager is a web application where organizers can create tournaments just by giving a game, start time, registration deadline, and player cap. The system will automatically set up a roster while also allowing adjustments to matches and updates to current standings.
+Additionally, players are free to browse upcoming tournaments and register for ones that are deemed interesting. The system automatically confirms players while space remains, places later registrations onto a waitlist, and promotes the next waitlisted player when someone withdraws, so organizers always have an accurate roster without manual tracking.
