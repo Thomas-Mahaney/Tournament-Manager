@@ -9,7 +9,6 @@ window.onload = function() {
         for (let i = 0; i < data.length; i++) {
             const newDiv = document.createElement("div")
             newDiv.id = "event_" + i
-            console.log(data[i].length)
             for (let item in data[i]) {
                 const newP = document.createElement("p")
                 newP.innerText = item
