@@ -1,5 +1,5 @@
 # Import modules
-from flask import Flask, json
+from flask import Flask, json, request
 from flask_cors import CORS
 import sqlite3
 from classes import User, Tournament
@@ -20,10 +20,13 @@ for i in range(5):
 def main():
     return "Hello, World!"
 
-# Basic test route for frontend backend communication. Will be removed later.
-@app.route("/api/test")
+@app.route("/api/test", methods=['POST'])
 def api_test():
-    return "hi!"
+    data = request.form
+
+    if data.get('username') == "user" and data.get('password') == '1234':
+        return {'success': True}
+    return {'success': False}
 
 # Loads and gets tournaments. Will probably add page functionality later so we don't get everything.
 @app.route("/api/get_tournaments")
