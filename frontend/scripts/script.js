@@ -14,6 +14,13 @@ window.onload = function() {
                 newP.innerText = item
                 newDiv.appendChild(newP)
             }
+            const newButton = document.createElement("button")
+            newButton.innerText = "Register"
+            newButton.onclick = function() {
+                console.log('hello')
+            }
+            newDiv.appendChild(newButton)
+
             document.getElementById("tournament-list").appendChild(newDiv)
             document.getElementById("tournament-list").appendChild(document.createElement("br"))
         }
