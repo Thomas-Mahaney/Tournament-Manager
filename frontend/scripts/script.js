@@ -9,12 +9,18 @@ window.onload = function() {
         for (let i = 0; i < data.length; i++) {
             const newDiv = document.createElement("div")
             newDiv.id = "event_" + i
-            console.log(data[i].length)
             for (let item in data[i]) {
                 const newP = document.createElement("p")
                 newP.innerText = item
                 newDiv.appendChild(newP)
             }
+            const newButton = document.createElement("button")
+            newButton.innerText = "Register"
+            newButton.onclick = function() {
+                console.log('hello')
+            }
+            newDiv.appendChild(newButton)
+
             document.getElementById("tournament-list").appendChild(newDiv)
             document.getElementById("tournament-list").appendChild(document.createElement("br"))
         }
