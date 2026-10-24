@@ -1,2 +1,7 @@
 Tournament Manager is a web application where organizers can create tournaments just by giving a game, start time, registration deadline, and player cap. The system will automatically set up a roster while also allowing adjustments to matches and updates to current standings.
 Additionally, players are free to browse upcoming tournaments and register for ones that are deemed interesting. The system automatically confirms players while space remains, places later registrations onto a waitlist, and promotes the next waitlisted player when someone withdraws, so organizers always have an accurate roster without manual tracking.
+
+To get working locally, make sure the following is set-up.
+1. Python libraries are installed (preferrably in a virtual environment). These libraries should be able to installed using requirements.txt using the command: pip install -r requirements.txt
+2. Run the python backend using the command: python app.py [or backend-database/app.py if your command line is in the root folder]. The server should be running on http://localhost:5000
+3. Run the frontend server by going into the frontend folder and running the command: python -m http.server 8000. The server should be running on http://localhost:8000
