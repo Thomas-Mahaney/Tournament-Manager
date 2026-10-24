@@ -12,12 +12,6 @@ CORS(app)
 DATABASE_NAME = 'test_database.db' # Name of the database the program will interact with
 ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the list
 
-# TEMPORARY. Creates dummy tournament classes to be shown in list.
-events = []
-for i in range(5):
-    new = Tournament(i, "Tournament" + str(i), "test", "game", "location", "starttime", "deadline", "beginner", 20)
-    events.append(new)
-
 # Default route. Can probably remove later.
 @app.route("/")
 def main():

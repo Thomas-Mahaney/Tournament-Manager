@@ -21,12 +21,13 @@ c.execute('''CREATE TABLE IF NOT EXISTS Tournament (
     player_cap INT NOT NULL
 );''')
 
-# Creates 4 dummy entries into table that can be used for testing.
+# Creates 5 dummy entries into table that can be used for testing.
 c.execute('''INSERT INTO Tournament (host_user_id, title, game, description, skill_level, start_time, deadline, location, player_cap) VALUES
 (0, 'Tournament 1', 'Game', 'Example Description', 'Beginner', '2026-10-22 00:00:00', '2026-10-29 12:00:00', 'Earth', 10),
 (0, 'Tournament 2', 'Dame', 'Description Example', 'Beginner', '2026-10-22 00:00:00', '2026-10-29 12:00:00', 'Mercury', 5),
 (0, 'Tournament 3', 'Lame', 'Description Description', 'Intermediate', '2026-10-22 00:00:00', '2026-10-29 12:00:00', 'Venus', 12),
-(0, 'Tournament 4', 'Same', 'Example Example', 'Expert', '2026-10-22 00:00:00', '2026-10-29 12:00:00', 'Mars', 26);
+(0, 'Tournament 4', 'Same', 'Example Example', 'Expert', '2026-10-22 00:00:00', '2026-10-29 12:00:00', 'Mars', 26),
+(0, 'Tournament 5', 'Tame', 'Secret 5th Entry', 'Expert', '2026-10-22 00:00:00', '2026-10-29 12:00:00', 'Jupiter', 8);
 ''')
 
 conn.commit()
