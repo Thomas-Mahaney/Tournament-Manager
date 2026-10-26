@@ -14,10 +14,10 @@ ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = '1uBu3qG7XwkiUzX98V_a0pCYumvPRYD70Dq5OG9unAw'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(seconds=10)
-app.config['JWT_TOKEN_LOCATION'] = ["headers", "cookies"]
 CORS(app, supports_credentials=True, allow_headers=["Authorization", "Content-Type"])
 jwt = JWTManager(app)
 
+# Handles signing up a new user
 @app.route('/api/signup', methods=['POST'])
 def signup():
     # Connect to database
@@ -29,15 +29,13 @@ def signup():
     username = request.form.get('username')
     password = request.form.get('password')
 
-    # Check if account exists
+    # Check if account exists, do not proceed if it does
     cursor.execute("SELECT username FROM Users WHERE username = ?", (username,))
     user = cursor.fetchone()
-
-    # Return if account exists
     if user:
         return {'success': False}
 
-    # Create new account
+    # Create new account if user doesn't exist
     password_hash = generate_password_hash(password)
     cursor.execute("INSERT INTO Users (username, password) VALUES (?, ?)", (username, password_hash))
     connection.commit()
@@ -45,22 +43,33 @@ def signup():
 
     return {'success': True}
 
-# Will update these 2 later. Placeholder.
+# Handles logging in users
 @app.route('/api/login', methods=['POST'])
 def login():
+    # Connect to database
+    connection = sqlite3.connect(DATABASE_NAME)
+    connection.row_factory = sqlite3.Row
+    cursor = connection.cursor()
+    
     # Get form data
-    # Check if account exists
-    # If so, create access token
-
     username = request.form.get('username')
     password = request.form.get('password')
-
-    if username == 'user' and password == '1234':
+    
+    # Attempt to get user
+    cursor.execute("SELECT username, password FROM Users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    
+    # Check if user exists and password is correct.
+    if user and check_password_hash(user['password'], password):\
+        # Creates a token tied to this user and send it to the frontend.
+        # Frontend will store this token in localstorage.
         access_token = create_access_token(identity=username)
-        response = jsonify({'success': True, 'access-token': access_token})
-        return response, 200
+        return {'success': True, 'access_token': access_token}
+    
+    # Login failed. Return false so frontend can respond appropriately.
     return {'success': False}
 
+# PLACEHOLDER: protected api to test user authentication.
 @app.route('/api/protected', methods=['GET'])
 @jwt_required()
 def protected():
@@ -68,6 +77,7 @@ def protected():
     return f'Logged in as {current_user}'
 
 # Gets a page of tournaments from database and returns them.
+# Implement filters [sort-by?]
 @app.route('/api/get_tournaments/<int:page>')
 def get_tournaments(page):
     # Connect to database
