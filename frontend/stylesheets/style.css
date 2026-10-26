@@ -1,3 +1,20 @@
 body {
     background-color: #f0f0f0;
 }
+
+.tournament {
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    max-width: 500px;
+}
+
+.tournament h3 {
+    margin-top: 0;
+}
+
+#filter-form {
+    margin: 12px 0;
+}

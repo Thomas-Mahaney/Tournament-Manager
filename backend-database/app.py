@@ -47,7 +47,7 @@ def build_filters(args):
     # Exact match filters picked from dropdowns
     if args.get('game'):
         conditions.append('game = ?')
-        values.append(args.get('game = ?'))
+        values.append(args.get('game'))
 
     if args.get('skill_level'):
         conditions.append('skill_level = ?')
@@ -55,7 +55,7 @@ def build_filters(args):
 
     # Only show tournaments that are still taking registrations
     if args.get('open') == 'true':
-        conditions.append("deadline > datetime('now, 'localtime')")
+        conditions.append("deadline > datetime('now', 'localtime')")
 
     if not conditions:
         return '', values
@@ -128,33 +128,6 @@ def get_tournament(tournament_id):
 #   3. get_tournament() returns a single tournament
 #   4. get_connection() keeps the connection code in one place, and makes it easy to change values later (I think)
 
-
-
-# I don't want to delete this function yet, but it is redundant with the new additions above since it's the same but without the filters. 
-# It can be safely removed once the frontend is updated to use the new functions
-@app.route("/api/get_tournaments/<int:page>")
-def get_tournaments(page):
-    # Connect to database
-    connection = sqlite3.connect(DATABASE_NAME)
-    connection.row_factory = sqlite3.Row
-    cursor = connection.cursor()
-
-    # Query current page of tournaments
-    cursor.execute('''
-        SELECT title, game, description, skill_level, location, start_time, deadline, player_cap
-        FROM Tournament 
-        ORDER BY tournament_id DESC
-        LIMIT ? OFFSET ?;
-    ''', (ENTRY_PER_PAGE, ENTRY_PER_PAGE * (page - 1)))
-
-    # Get all results and convert them into a list of dictionaries
-    results = [dict(entry) for entry in cursor.fetchall()]
-
-    # close connection
-    connection.close()
-
-    # Convert results into a JSON string and send it back to frontend
-    return json.dumps(results)
 
 if __name__ == '__main__':
     app.run(debug=True)

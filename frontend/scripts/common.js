@@ -33,7 +33,7 @@ function formatValue(category, value) {
 // Create a paragragh like "Game: Chess" for one tournament field
 function newField(category, value) {
     const p = document.createElement('p')
-    p.innerText = FIELD_LABELS[category] + ': ' + formatValue(category, value)
+    p.innerText = FIELD_NAMES[category] + ': ' + formatValue(category, value)
     return p
 }
 
