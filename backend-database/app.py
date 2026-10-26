@@ -13,7 +13,7 @@ ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the
 # Initialize app
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = '1uBu3qG7XwkiUzX98V_a0pCYumvPRYD70Dq5OG9unAw'
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(seconds=10)
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hour=2)
 CORS(app, supports_credentials=True, allow_headers=["Authorization", "Content-Type"])
 jwt = JWTManager(app)
 
@@ -68,13 +68,6 @@ def login():
     
     # Login failed. Return false so frontend can respond appropriately.
     return {'success': False}
-
-# PLACEHOLDER: protected api to test user authentication.
-@app.route('/api/protected', methods=['GET'])
-@jwt_required()
-def protected():
-    current_user = get_jwt_identity()
-    return f'Logged in as {current_user}'
 
 # Gets a page of tournaments from database and returns them.
 # Implement filters [sort-by?]
