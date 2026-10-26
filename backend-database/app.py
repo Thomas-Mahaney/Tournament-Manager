@@ -1,18 +1,24 @@
 # Import modules
 from flask import Flask, json, request
 from flask_cors import CORS
+from flask_praetorian import Praetorian, auth_required
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
-
-# Initialize app
-app = Flask(__name__)
-CORS(app)
 
 # Constant variables used for database functions
 DATABASE_NAME = 'test_database.db' # Name of the database the program will interact with
 ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the list
 
+# Initialize app
+app = Flask(__name__)
+guard = Praetorian()
+CORS(app)
+
+class User():
+    id = 1
+
 # Test api route. Currently used for our mockup login. Will be replaced with proper login api later.
-@app.route("/api/test", methods=['POST'])
+@app.route('/api/test', methods=['POST'])
 def api_test():
     data = request.form
 
@@ -20,8 +26,22 @@ def api_test():
         return {'success': True}
     return {'success': False}
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    username = request.form.get('username')
+    password = request.form.get('password')
+
+    user = User()
+    if username == 'user' and password == '1234':
+        token = guard.encode_jwt_token(user)
+        return {'success': True}
+    return {'success': False}
+
+@app.route('/api/protected', methods=['GET'])
+@auth_required
+
 # 
-@app.route("/api/get_tournaments/<int:page>")
+@app.route('/api/get_tournaments/<int:page>')
 def get_tournaments(page):
     # Connect to database
     connection = sqlite3.connect(DATABASE_NAME)
