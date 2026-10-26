@@ -6,6 +6,15 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import datetime
 
+#TODO: Add tournament filtering
+#TODO: Add registration
+#TODO: Add tournament creation
+#TODO: Add list of tournaments owned by user that they can view
+#TODO: Add dashboard for tournament that shows matches, registrations, and waitlist
+#TODO: Add tournament functionality
+#TODO: Add manual logout
+#TODO: Polish frontend interface
+
 # Constant variables used for database functions
 DATABASE_NAME = 'test_database.db' # Name of the database the program will interact with
 ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the list
