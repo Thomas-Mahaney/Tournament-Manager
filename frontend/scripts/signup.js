@@ -14,7 +14,7 @@ document.getElementById("signup-form").addEventListener("submit", function(event
         if (data.success) {
             window.location.href = '/'
         } else {
-            document.getElementById('error-message').innerText = "Username already exists."
+            document.getElementById('error-message').innerText = data.msg
         }
     })
     .catch(error => console.error(error));

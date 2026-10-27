@@ -17,7 +17,7 @@ document.getElementById("login-form").addEventListener("submit", function(event)
             document.location.href = '/'
         } else {
             // Add error message
-            document.getElementById('error-message').innerText = "Invalid username or password."
+            document.getElementById('error-message').innerText = data.msg
         }
     })
     .catch(error => console.error(error));
