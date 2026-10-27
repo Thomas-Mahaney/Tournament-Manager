@@ -1,7 +1,7 @@
 # Import modules
 from flask import Flask, json, jsonify, request
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import datetime
@@ -22,7 +22,7 @@ ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the
 # Initialize app
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = '1uBu3qG7XwkiUzX98V_a0pCYumvPRYD70Dq5OG9unAw'
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=2)
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(seconds=10)
 CORS(app, supports_credentials=True, allow_headers=["Authorization", "Content-Type"])
 jwt = JWTManager(app)
 
@@ -42,7 +42,7 @@ def get_results(query):
 def signup():
     # Check if user is already signed in
     current_user = get_jwt_identity()
-    if current_user == None:
+    if current_user != None:
         return {'success': False, 'msg': 'You are already signed in.'}
 
     # Connect to database
@@ -73,7 +73,7 @@ def signup():
 def login():
     # Check if user is already signed in
     current_user = get_jwt_identity()
-    if current_user == None:
+    if current_user != None:
         return {'success': False, 'msg': 'You are already signed in.'}
 
     # Connect to database
@@ -87,6 +87,7 @@ def login():
     # Attempt to get user
     cursor.execute("SELECT user_id, username, password FROM Users WHERE username = ?", (username,))
     user = cursor.fetchone()
+    connection.close()
     
     # Check if user exists and password is correct.
     if user and check_password_hash(user['password'], password):\
@@ -111,6 +112,7 @@ def get_owned():
 
     cursor.execute("SELECT * FROM Tournament WHERE host_user_id = ? ORDER BY tournament_id DESC", (current_user,))
     results = get_results(cursor.fetchall())
+    connection.close()
 
     # Convert to json string and send to requester
     return json.dumps(results)
