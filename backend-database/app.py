@@ -169,7 +169,7 @@ def get_owned():
     # Convert to json string and send to requester
     return jsonify(results), 200
 
-@app.route('/api/get_dashboard_data/<int:tournament_id>')
+@app.route('/api/get_dashboard_data/<int:tournament_idpip')
 @jwt_required()
 def get_dashboard(tournament_id):
     # Connect to database
@@ -232,7 +232,7 @@ def get_filter_options():
     
     connection.close()
     
-    return json.dumps({'games': games, 'skill_levels': skill_levels})
+    return jsonify({'games': games, 'skill_levels': skill_levels})
 
 # Gets all details for a single tournament. Used by the tournament viewer page.
 @app.route("/api/get_tournament/<int:tournament_id>")
@@ -252,7 +252,7 @@ def get_tournament(tournament_id):
     #Send back a 404 if no tournament has that id
     if result is None:
         return {'error': 'Tournament not found'}, 404
-    return json.dumps(dict(result))
+    return jsonify(dict(result))
 
 # Changes to the backend
 #   1. get_tournaments() now applies the filters and also returns tournament_id, so the list can link to each tournament
