@@ -9,8 +9,16 @@
     </head>
 
     <body>
-        <button id="login" onclick="location.href='login.html'">Login</button>
-        <button id="register">Register</button>
+        <div id="user-buttons">
+            <div id="not-logged">
+                <button id="login" onclick="location.href='login.html'">Login</button>
+                <button id="signup" onclick="location.href='signup.html'">Signup</button>
+            </div>
+            <div id="is-logged">
+                <button id="dashboard" onclick="location.href='dashboard.html'">Dashboard</button>
+                <button id="logout">Log Out</button>
+            </div>
+        </div>
         <br>
             <form id="filter-form">
               <input type="text" name="search" placeholder="Search tournaments...">
@@ -34,4 +42,5 @@
 
     <script src="scripts/common.js"></script>
     <script src="scripts/script.js"></script>
+    <script type="module" src="scripts/buttons.js"></script>
 </html>
