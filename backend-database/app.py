@@ -1,5 +1,5 @@
 # Import modules
-from flask import Flask, json, jsonify, request
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -22,7 +22,7 @@ ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the
 # Initialize app
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = '1uBu3qG7XwkiUzX98V_a0pCYumvPRYD70Dq5OG9unAw'
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(seconds=10)
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
 CORS(app, supports_credentials=True, allow_headers=["Authorization", "Content-Type"])
 jwt = JWTManager(app)
 
@@ -79,7 +79,7 @@ def login():
     # Connect to database
     connection = get_connection()
     cursor = connection.cursor()
-    
+
     # Get form data
     username = request.form.get('username')
     password = request.form.get('password')
@@ -87,17 +87,39 @@ def login():
     # Attempt to get user
     cursor.execute("SELECT user_id, username, password FROM Users WHERE username = ?", (username,))
     user = cursor.fetchone()
-    connection.close()
-    
+
     # Check if user exists and password is correct.
-    if user and check_password_hash(user['password'], password):\
+    if user and check_password_hash(user['password'], password):
         # Creates a token tied to this user and send it to the frontend.
         # Frontend will store this token in localstorage.
         access_token = create_access_token(identity=str(user['user_id']))
         return {'success': True, 'access_token': access_token}
-    
+
+    connection.close()
     # Login failed. Return false so frontend can respond appropriately.
     return {'success': False, 'msg': 'Invalid username or password.'}
+
+@jwt.token_in_blocklist_loader
+def check_blocklist(jwt_header, jwt_payload):
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute('SELECT token FROM Blocked_Tokens WHERE token = ?', (jwt_payload['jti'],))
+    token = cursor.fetchone()
+    connection.close()
+
+    if token:
+        return True
+    return False
+
+@app.route('/api/logout', methods=['GET'])
+@jwt_required()
+def logout():
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute('INSERT INTO Blocked_Tokens (token) VALUES (?)', (get_jwt()['jti'],))
+    connection.commit()
+    connection.close()
+    return {'success': True}
 
 @app.route('/api/get_owned_tournaments')
 @jwt_required()
@@ -115,7 +137,7 @@ def get_owned():
     connection.close()
 
     # Convert to json string and send to requester
-    return json.dumps(results)
+    return jsonify(results), 200
 
 @app.route('/api/get_dashboard_data/<int:tournament_id>')
 @jwt_required()
@@ -165,7 +187,7 @@ def get_tournaments(page):
     connection.close()
 
     # Convert results into a JSON string and send it back to frontend
-    return json.dumps(results)
+    return jsonify(results)
 
 if __name__ == '__main__':
     app.run(debug=True)

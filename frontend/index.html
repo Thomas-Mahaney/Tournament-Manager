@@ -10,8 +10,14 @@
 
     <body>
         <div id="user-buttons">
-            <button id="login" onclick="location.href='login.html'">Login</button>
-            <button id="signup" onclick="location.href='signup.html'">Signup</button>
+            <div id="not-logged">
+                <button id="login" onclick="location.href='login.html'">Login</button>
+                <button id="signup" onclick="location.href='signup.html'">Signup</button>
+            </div>
+            <div id="is-logged">
+                <button id="dashboard" onclick="location.href='dashboard.html'">Dashboard</button>
+                <button id="logout">Log Out</button>
+            </div>
         </div>
         <br>
         <div id="tournament-list"></div>
@@ -23,4 +29,5 @@
     </body>
 
     <script src="scripts/script.js"></script>
+    <script type="module" src="scripts/buttons.js"></script>
 </html>

@@ -1,21 +1,18 @@
+// This script handles signups
+
+// Import our requester
+import { requestUser } from "./exports.js";
+
+// Runs when form is submitted
 document.getElementById("signup-form").addEventListener("submit", function(event) {
-    // prevent automatic page refresh
+    // Prevent automatic page refresh
     event.preventDefault()
 
-    // request the signup api and send our form data through
-    fetch('http://localhost:5000/api/signup', {
-        method: 'POST',
-        body: new FormData(this),
-    })
-    .then(response => response.json()) // parse json response
+    // Request the signup api and send our form data through
+    requestUser('signup', new FormData(this))
     .then(data => {
-        // If successful, redirect to home
-        // If unsuccessful, add error message
-        if (data.success) {
-            window.location.href = '/'
-        } else {
-            document.getElementById('error-message').innerText = data.msg
-        }
+        // If signup successful, return to home.
+        if (!data.success) {return}
+        window.location.href = '/'
     })
-    .catch(error => console.error(error));
 })
