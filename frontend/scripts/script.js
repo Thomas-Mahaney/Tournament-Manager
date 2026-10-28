@@ -46,7 +46,7 @@ function loadPageOfResults(page, replaceState, setDefault) {
 
             // Title links to the tournament viewer page
             const title = document.createElement('h3')
-            const link = document.createElemenet('a')
+            const link = document.createElement('a')
             link.href = 'tournament.html?id=' + entry.tournament_id
             link.innerText = entry.title
             title.appendChild(link)
@@ -65,34 +65,6 @@ function loadPageOfResults(page, replaceState, setDefault) {
             // Append our entry div into the main tournament-list div
             list.appendChild(newDiv)
         })
-        /*
-        // Go through each entry of our data and create html for it
-        data.forEach((entry, index) => {
-            // Create a new div to store event details into
-            const newDiv = newElement('event_' + index, 'div')
-
-            // Loop through entry and create/update elements for each value
-            for (let category in entry) {
-                // Creates new paragraph element
-                const newP = newElement(category + '_' + index, 'p')
-                
-                // Set text of element to category name and value, then append to our entry div
-                newP.innerText = category + ': ' + entry[category]
-                newDiv.appendChild(newP)
-            }
-
-            // Create registration button
-            const newButton = newElement('register_' + index, 'button')
-            newButton.innerText = "Register"
-            
-            // Append to entry div
-            newDiv.appendChild(newButton)
-
-            // Append our entry div into the main tournament-list div, then add a line break
-            list.appendChild(newDiv)
-            list.appendChild(newElement('break_' + index, 'br'))
-        })
-        */
 
         updateURL({ page: page }, replaceState)
         document.getElementById('page-counter').innerText = page
@@ -161,7 +133,7 @@ function getPage() {
 
 // Gets only the filter parameters from the url, ready to send to the backend
 function getFilters() {
-    const params = new URLSearchParaams(window.location.search)
+    const params = new URLSearchParams(window.location.search)
     const filters = new URLSearchParams()
 
     FILTERS.forEach(filter => {
@@ -175,7 +147,7 @@ function getFilters() {
 // Fills in the filter form using the url, so filters stay set after a refresh or using back/forward
 function showFiltersInForm() {
     const params = new URLSearchParams(window.location.search)
-    const inputs = document.getElementById('filter-form').nextElementSibling
+    const inputs = document.getElementById('filter-form').elements
 
     inputs.search.value = params.get('search') || ''
     inputs.game.value = params.get('game') || ''
