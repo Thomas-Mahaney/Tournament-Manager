@@ -1,4 +1,7 @@
-// simple function used to create a header that's dependent on whether a token exists
+// Our backend domain that we'll use for all fetch requests
+export const BACKEND_DOMAIN = 'http://localhost:5000/api/'
+
+// Simple function used to create a header that's dependent on whether a token exists
 export function getHeader() {
     var header = {}
     var token = localStorage.getItem('accessToken')
@@ -7,9 +10,11 @@ export function getHeader() {
     return header
 }
 
+// Used for logins/signups. Gets the relevant api and handles errors.
+// If success, send data back for the other script to handle
 export function requestUser(api, body) {
     // request api and send our form data through
-    return fetch('http://localhost:5000/api/' + api, {
+    return fetch(BACKEND_DOMAIN + api, {
         method: 'POST',
         body: body,
         headers: getHeader()

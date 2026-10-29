@@ -1,9 +1,11 @@
+import { BACKEND_DOMAIN } from "./exports"
+
 // Default page number
 const DEFAULT_PAGE = 1
 
 // When page loads, we call the backend to get available tournaments and display them.
 function loadPageOfResults(page, replaceState, setDefault) {
-    fetch('http://localhost:5000/api/get_tournaments/' + page) // Calls backend api for tournaments
+    return fetch(BACKEND_DOMAIN + 'get_tournaments/' + page) // Calls backend api for tournaments
     .then(response => response.json()) // Parse response JSON into an array
     .then(data => {
         // Check if there's any entries
@@ -113,6 +115,9 @@ function getPage() {
 // When site loads, load page of results
 window.onload = function() {
    loadPageOfResults(getPage(), false, true)
+   .then(
+
+   )
 }
 
 // Update results when using foward and back history arrows on browser
