@@ -169,30 +169,30 @@ def get_owned():
     # Convert to json string and send to requester
     return jsonify(results), 200
 
-@app.route('/api/get_dashboard_data/<int:tournament_idpip')
-@jwt_required()
-def get_dashboard(tournament_id):
-    # Connect to database
-    connection = get_connection()
-    cursor = connection.cursor()
+#@app.route('/api/get_dashboard_data/<int:tournament_id')
+#@jwt_required()
+#def get_dashboard(tournament_id):
+#    # Connect to database
+#    connection = get_connection()
+#    cursor = connection.cursor()
+#
+#    # Get user
+#    current_user = int(get_jwt_identity())
 
-    # Get user
-    current_user = int(get_jwt_identity())
+#    # Get tournament from id and host id
+#    cursor.execute("SELECT * FROM Tournament WHERE tournament_id = ? AND host_user_id = ?", (tournament_id, current_user))
+#    tournament = cursor.fetchone()
 
-    # Get tournament from id and host id
-    cursor.execute("SELECT * FROM Tournament WHERE tournament_id = ? AND host_user_id = ?", (tournament_id, current_user))
-    tournament = cursor.fetchone()
-
-    # Throw an error if unable to fetch tournament (usually means the tournament doesn't belong to user)
-    if not tournament:
-        return {'success': False}
-
-    # Fetch participants
-
-    # Fetch matches
-
-    # Merge all data and return to client
-    return 'DATA'
+#    # Throw an error if unable to fetch tournament (usually means the tournament doesn't belong to user)
+#    if not tournament:
+#        return {'success': False}
+#
+#    # Fetch participants
+#
+#    # Fetch matches
+#
+#    # Merge all data and return to client
+#    return 'DATA'
 
 # Gets a page of tournaments from database and returns them.
 # Implement filters [sort-by?]
