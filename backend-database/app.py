@@ -7,13 +7,22 @@ import sqlite3
 import datetime
 
 #TODO: Add tournament filtering
-#TODO: Add registration
 #TODO: Add tournament creation
-#TODO: Add list of tournaments owned by user that they can view
+#TODO: Add tournament registration
+#TODO: Add waitlist functionality
+#TODO: Add ability for user to see list of owned tournaments
 #TODO: Add dashboard for tournament that shows matches, registrations, and waitlist
 #TODO: Add tournament functionality
-#TODO: Add manual logout
 #TODO: Polish frontend interface
+
+#TODO: DASHBOARD
+    # Lets users see tournaments they're in
+    # Lets users see tournaments they own
+    # Subpage: Tournament-specific dashboard
+        # Shows matchs, registrations, waitlist
+        # Lets host edit tournament details
+        # Lets host change user positions
+        # Lets host declare match winner
 
 # Constant variables used for database functions
 DATABASE_NAME = 'test_database.db' # Name of the database the program will interact with
@@ -25,6 +34,8 @@ app.config['JWT_SECRET_KEY'] = '1uBu3qG7XwkiUzX98V_a0pCYumvPRYD70Dq5OG9unAw'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
 CORS(app, supports_credentials=True, allow_headers=["Authorization", "Content-Type"])
 jwt = JWTManager(app)
+
+# FUNCTIONS
 
 # Function for quickly setting up database connection
 def get_connection():
@@ -65,6 +76,8 @@ def build_filters(args):
 # Function for converting a database query into a list of dictionaries
 def get_results(query):
     return [dict(entry) for entry in query]
+
+# USER AUTHENTICATION APIS
 
 # Handles signing up a new user
 @app.route('/api/signup', methods=['POST'])
@@ -151,48 +164,14 @@ def logout():
     connection.close()
     return {'success': True}
 
-@app.route('/api/get_owned_tournaments')
-@jwt_required()
-def get_owned():
-    # Get id of user
-    current_user = int(get_jwt_identity())
-    print(current_user)
+# TOURNAMENT CREATION [EDIT?] [REMOVE?]
+@app.route('/api/create_tournament', methods=['POST'])
+def create_tournament():
+    # Get form data
+    # Create tournament with data and insert into database
+    pass
 
-    # Query database for all tournaments containing an identical host_id
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("SELECT * FROM Tournament WHERE host_user_id = ? ORDER BY tournament_id DESC", (current_user,))
-    results = get_results(cursor.fetchall())
-    connection.close()
-
-    # Convert to json string and send to requester
-    return jsonify(results), 200
-
-@app.route('/api/get_dashboard_data/<int:tournament_id>')
-@jwt_required()
-def get_dashboard(tournament_id):
-    # Connect to database
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    # Get user
-    current_user = int(get_jwt_identity())
-
-    # Get tournament from id and host id
-    cursor.execute("SELECT * FROM Tournament WHERE tournament_id = ? AND host_user_id = ?", (tournament_id, current_user))
-    tournament = cursor.fetchone()
-
-    # Throw an error if unable to fetch tournament (usually means the tournament doesn't belong to user)
-    if not tournament:
-        return {'success': False}
-
-    # Fetch participants
-
-    # Fetch matches
-
-    # Merge all data and return to client
-    return 'DATA'
+# TOURNAMENT GETTERS
 
 # Gets a page of tournaments from database and returns them.
 # Implement filters [sort-by?]
@@ -263,3 +242,67 @@ def get_tournament(tournament_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+@app.route('/api/get_joined_tournaments')
+@jwt_required()
+def get_joined(): # UNTESTED
+     # Get id of user
+    current_user = int(get_jwt_identity())
+
+    # Query database for every tournament the user is in
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute('''SELECT Tournament.*, Participants.status FROM Participants INNER JOIN Tournament
+        ON Participants.user_id = ? AND Participants.tournament_id = Tournament.tournament_id
+    ''', (current_user,))
+    results = get_results(cursor.fetchall())
+    connection.close()
+
+    # Convert to json string and send to requester
+    return jsonify(results), 200
+    
+
+@app.route('/api/get_owned_tournaments')
+@jwt_required()
+def get_owned():
+    # Get id of user
+    current_user = int(get_jwt_identity())
+
+    # Query database for all tournaments containing an identical host_id
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT * FROM Tournament WHERE host_user_id = ? ORDER BY tournament_id DESC", (current_user,))
+    results = get_results(cursor.fetchall())
+    connection.close()
+
+    # Convert to json string and send to requester
+    return jsonify(results), 200
+
+# DASHBOARD ROUTES
+
+@app.route('/api/get_dashboard_data/<int:tournament_id>')
+@jwt_required()
+def get_dashboard(tournament_id):
+    # Connect to database
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Get user
+    current_user = int(get_jwt_identity())
+
+    # Get tournament from id and host id
+    cursor.execute("SELECT * FROM Tournament WHERE tournament_id = ? AND host_user_id = ?", (tournament_id, current_user))
+    tournament = cursor.fetchone()
+
+    # Throw an error if unable to fetch tournament (usually means the tournament doesn't belong to user)
+    if not tournament:
+        return {'success': False}
+
+    # Fetch participants
+
+    # Fetch matches
+
+    # Merge all data and return to client
+    return 'DATA'
