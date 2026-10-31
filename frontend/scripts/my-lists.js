@@ -7,10 +7,21 @@ owned.onclick = function() {
     PAGE_API = 'get_owned_tournaments'
     owned.disabled = true
     joined.disabled = false
+
+    loadFilterOptions().then(() => {
+        showFiltersInForm()
+        loadPageOfResults(PAGE_API, getPage(), true, true)
+    })
 }
 
+// UPDATE API TO LOAD
 joined.onclick = function() {
     PAGE_API = 'get_joined_tournaments'
     owned.disabled = false
     joined.disabled = true
+
+    loadFilterOptions().then(() => {
+        showFiltersInForm()
+        loadPageOfResults(PAGE_API, getPage(), true, true)
+    })
 }
