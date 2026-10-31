@@ -6,12 +6,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import datetime
 
-#TODO: Add tournament filtering
-#TODO: Add tournament creation
-#TODO: Add tournament registration
+#TODO: Add tournament creation <-- Kevin
+#TODO: Add tournament registration <-- Kevin
 #TODO: Add waitlist functionality
-#TODO: Add ability for user to see list of owned tournaments
-#TODO: Add dashboard for tournament that shows matches, registrations, and waitlist
+#TODO: Add ability for user to see list of owned tournaments < -- 
+#TODO: Add dashboard for tournament that shows matches, registrations, and waitlist < --
 #TODO: Add tournament functionality
 #TODO: Polish frontend interface
 
@@ -42,6 +41,36 @@ def get_connection():
     connection = sqlite3.connect(DATABASE_NAME)
     connection.row_factory = sqlite3.Row
     return connection
+
+# Build a WHERE clause from the filters given in the url
+# Values are passed separately as ? parameters so user input never ends up inside the SQL itself
+def build_filters(args):
+    conditions = []
+    values = []
+
+    # Search matches anywhere in the title or description
+    search = args.get('search', '').strip()
+    if search:
+        conditions.append('(title LIKE ? OR description LIKE ?)')
+        values += ['%' + search + '%', '%' + search + '%']
+
+    # Exact match filters picked from dropdowns
+    if args.get('game'):
+        conditions.append('game = ?')
+        values.append(args.get('game'))
+
+    if args.get('skill_level'):
+        conditions.append('skill_level = ?')
+        values.append(args.get('skill_level'))    
+
+    # Only show tournaments that are still taking registrations
+    if args.get('open') == 'true':
+        conditions.append("deadline > datetime('now', 'localtime')")
+
+    if not conditions:
+        return '', values
+
+    return 'WHERE ' + ' AND '.join(conditions), values
 
 # Function for converting a database query into a list of dictionaries
 def get_results(query):
@@ -150,23 +179,65 @@ def get_tournaments(page):
     # Connect to database
     connection = get_connection()
     cursor = connection.cursor()
-
+    
     # Query current page of tournaments
+    where, values = build_filters(request.args)
     cursor.execute('''
-        SELECT title, game, description, skill_level, location, start_time, deadline, player_cap
-        FROM Tournament 
+        SELECT tournament_id, title, game, description, skill_level, location, start_time, deadline, player_cap
+        FROM Tournament
+        ''' + where + '''
         ORDER BY tournament_id DESC
         LIMIT ? OFFSET ?;
-    ''', (ENTRY_PER_PAGE, ENTRY_PER_PAGE * (page - 1)))
-
+    ''', values + [ENTRY_PER_PAGE, ENTRY_PER_PAGE * (page - 1)])
+    
     # Get all results and convert them into a list of dictionaries
     results = get_results(cursor.fetchall())
 
-    # close connection
+    # Close connection
     connection.close()
 
     # Convert results into a JSON string and send it back to frontend
     return jsonify(results)
+
+# Gets every option the filter dropdowns can use, based on what's in the database
+@app.route("/api/get_filter_options")
+def get_filter_options():
+    connection = get_connection()
+    cursor = connection.cursor()
+    
+    games = [row['game'] for row in cursor.execute('SELECT DISTINCT game FROM Tournament ORDER BY game;')]
+    skill_levels = [row['skill_level'] for row in cursor.execute('SELECT DISTINCT skill_level FROM Tournament ORDER BY skill_level;')]
+    
+    connection.close()
+    
+    return jsonify({'games': games, 'skill_levels': skill_levels})
+
+# Gets all details for a single tournament. Used by the tournament viewer page.
+@app.route("/api/get_tournament/<int:tournament_id>")
+def get_tournament(tournament_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+    
+    cursor.execute('''
+        SELECT tournament_id, title, game, description, skill_level, location, start_time, deadline, player_cap
+        FROM Tournament
+        WHERE tournament_id = ?;
+    ''', (tournament_id,))
+    result = cursor.fetchone()
+    
+    connection.close()
+
+    #Send back a 404 if no tournament has that id
+    if result is None:
+        return {'error': 'Tournament not found'}, 404
+    return jsonify(dict(result))
+
+# Changes to the backend
+#   1. get_tournaments() now applies the filters and also returns tournament_id, so the list can link to each tournament
+#   2. get_filter_options() fills the dropdown menus
+#   3. get_tournament() returns a single tournament
+#   4. get_connection() keeps the connection code in one place, and makes it easy to change values later (I think)
+
 
 if __name__ == '__main__':
     app.run(debug=True)

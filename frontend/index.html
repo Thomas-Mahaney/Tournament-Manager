@@ -17,11 +17,23 @@
                 <button id="signup" onclick="location.href='signup.html'">Signup</button>
             </div>
             <div id="is-logged">
-                <button id="dashboard" onclick="location.href='dashboard.html'">Dashboard</button>
+                <button id="my-tournaments" onclick="location.href='my-tournaments.html'">My Tournaments</button>
                 <button id="logout">Log Out</button>
             </div>
         </div>
         <br>
+            <form id="filter-form">
+              <input type="text" name="search" placeholder="Search tournaments...">
+              <select name="game">
+                  <option value="">All games</option>
+              </select>
+              <select name="skill_level">
+                  <option value="">All skill levels</option>
+              </select>
+              <label><input type="checkbox" name="open"> Open for registration</label>
+              <button type="submit">Apply</button>
+              <button type="button" id="filter-clear">Clear</button>
+          </form>
         <div id="tournament-list"></div>
         <div id="page-select">
             <button id="page-back"><</button>
@@ -31,5 +43,6 @@
     </body>
 
     <script type="module" src="scripts/script.js"></script>
+    <script src="scripts/common.js"></script>
     <script type="module" src="scripts/buttons.js"></script>
 </html>

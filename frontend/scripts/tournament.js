@@ -1,0 +1,47 @@
+// Loads a single tournament using the id in the url (tournament.html?id=3) and shows all of it's data
+function loadTournament() {
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get('id')
+    const details = document.getElementById('tournament-details')
+
+    fetch(API_URL + '/api/get_tournament/' + id)
+    .then(response => {
+        // Backend sends a 404 if the tournament doesn't exist
+        if (!response.ok) {
+            throw new Error('Tournament not found')
+        }
+        return response.json()
+    })
+    .then(tournament => {
+        // Show the title in the page heading and browser tab
+        document.getElementById('tournament-title').innerText = tournament.title
+        document.title = tournament.title
+
+        // Description gets it's own paragraph above the other details
+        const description = document.createElement('p')
+        description.innerText = tournament.description || 'No description given.'
+        details.appendChild(description)
+
+        // Add a line for each fiend we want to show the user
+        for (let category in FIELD_NAMES){
+            details.appendChild(newField(category, tournament[category]))
+        }
+
+        // Placeholder registration button, same as the one on the list page
+        const button = document.createElement('button')
+        button.innerText = 'Register'
+        details.appendChild(button)
+    })
+    .catch(error => {
+        document.getElementById('tournament-title').innerText = 'Tournament not found.'
+        console.error(error)
+    })
+}
+
+// If we came from the tournament list, go back to the same page and filters the user had
+const backLink = document.getElementById('back-link')
+if (document.referrer.includes('index.html')) {
+    backLink.href = document.referrer
+}
+
+window.onload = loadTournament
