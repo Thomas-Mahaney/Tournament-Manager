@@ -1,8 +1,5 @@
 // This script handles signups
 
-// Import our requester
-import { requestUser } from "./exports.js";
-
 // Runs when form is submitted
 document.getElementById("signup-form").addEventListener("submit", function(event) {
     // Prevent automatic page refresh

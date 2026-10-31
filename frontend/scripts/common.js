@@ -55,15 +55,19 @@ function isLoggedIn() {
     }
 }
 
+function getHeader() {
+    var header = {}
+    var token = localStorage.getItem('accessToken')
+    if (token) { header['Authorization'] = `Bearer ${token}`}
+
+    return header
+}
+
 // Calls the backend with the login token attached
 // Always gives back { ok, status, data } so callers can check result.ok instead of catching errors
 // If the server says the token expired or was logged out, the token is removed
 function authFetch(path, options = {}) {
-    const headers = {}
-    const token = localStorage.getItem('accessToken')
-    if (token) { headers['Authorization'] = 'Bearer ' + token}
-
-    return fetch(API_URL + path, { ...options, headers: headers})
+    return fetch(API_URL + path, { ...options, headers: getHeader()})
     .then(response => response.json()
     .catch(() => ({})) // Error pages from the server aren't JSON
         .then(data => {
@@ -72,4 +76,29 @@ function authFetch(path, options = {}) {
             }
             return { ok: response.ok, status: response.status, data: data }
         }))
+}
+
+// Used for login/signup pages
+function requestUser(api, body) {
+    // request api and send our form data through
+    return fetch(API_URL + '/api/' + api, {
+        method: 'POST',
+        body: body,
+        headers: getHeader()
+    })
+    .then(response => response.json()) // parses json response
+    .then(data => {
+        // If successful, return data
+        if (data.success) {
+            return data
+        } else if (data.msg == 'Token has expired') {
+            // If login failed due to an expired token, clear token and try again.
+            localStorage.removeItem('accessToken')
+            return requestUser(api, body)
+        } else {
+            // Add error message
+            document.getElementById('error-message').innerText = data.msg
+        }
+    })
+    .catch(error => console.error(error))
 }

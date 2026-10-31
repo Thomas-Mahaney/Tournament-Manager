@@ -1,5 +1,3 @@
-import { getHeader, API_URL } from "./exports.js";
-
 function isTokenValid(token) {
   try {
     const { exp } = JSON.parse(atob(token.split('.')[1]))
