@@ -31,11 +31,10 @@ function loadTournament() {
 
         // Player count, then register / withdraw buttons. After a change, reload this tournament.
         details.appendChild(newPlayerCount(tournament))
-        buildRegistrationArea(tournament, registrations[tournament.tournament_id], loadTournament)
-            .then( data => {
-                details.appendChild(data)
-            })
-
+        authFetch('/api/get_id')
+        .then(result => {
+            details.appendChild(buildRegistrationArea(tournament, result.data.id, registrations[tournament.tournament_id], loadTournament))
+        })
     })
     .catch(error => {
         document.getElementById('tournament-title').innerText = 'Tournament not found.'
