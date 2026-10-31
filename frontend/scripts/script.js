@@ -31,39 +31,39 @@ function loadPageOfResults(page, replaceState, setDefault) {
             list.appendChild(message)
         }
 
-        // Go through each entry of our data and create html for it
-        data.forEach(entry => {
-            // Create a new div to store event details into
-            const newDiv = document.createElement('div')
-            newDiv.className = 'tournament'
+        // Get user id
+        authFetch('/api/get_id')
+        .then(result => {
+            // Go through each entry of our data and create html for it
+            data.forEach(entry => {
+                // Create a new div to store event details into
+                const newDiv = document.createElement('div')
+                newDiv.className = 'tournament'
 
-            // Title links to the tournament viewer page
-            const title = document.createElement('h3')
-            const link = document.createElement('a')
-            link.href = 'tournament.html?id=' + entry.tournament_id
-            link.innerText = entry.title
-            title.appendChild(link)
-            newDiv.appendChild(title)
+                // Title links to the tournament viewer page
+                const title = document.createElement('h3')
+                const link = document.createElement('a')
+                link.href = 'tournament.html?id=' + entry.tournament_id
+                link.innerText = entry.title
+                title.appendChild(link)
+                newDiv.appendChild(title)
 
-            // Add a line for each field we want to show the user
-            for (let category in FIELD_NAMES) {
-                newDiv.appendChild(newField(category, entry[category]))
-            }
+                // Add a line for each field we want to show the user
+                for (let category in FIELD_NAMES) {
+                    newDiv.appendChild(newField(category, entry[category]))
+                }
 
-            // Player count, then register/withdraw buttons. After a change, reload the same page
-            newDiv.appendChild(newPlayerCount(entry))
-            buildRegistrationArea(entry, registrations[entry.tournament_id], () => loadPageOfResults(getPage(), true))
-            .then( data => {
-                newDiv.appendChild(data)
+                // Player count, then register/withdraw buttons. After a change, reload the same page
+                newDiv.appendChild(newPlayerCount(entry))
+                newDiv.appendChild(buildRegistrationArea(entry, result.data.id, registrations[entry.tournament_id], () => loadPageOfResults(getPage(), true)))
+                
+                // Append our entry div into the main tournament-list div
+                list.appendChild(newDiv)
             })
-            
-            
-            // Append our entry div into the main tournament-list div
-            list.appendChild(newDiv)
-        })
 
-        updateURL({ page: page }, replaceState)
-        document.getElementById('page-counter').innerText = page
+            updateURL({ page: page }, replaceState)
+            document.getElementById('page-counter').innerText = page
+        })
     })
     .catch(message => console.error(message)) // Catch any errors and output them in the console
 }
