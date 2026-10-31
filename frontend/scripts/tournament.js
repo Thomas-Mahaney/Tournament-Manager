@@ -49,3 +49,6 @@ if (document.referrer.includes('index.html')) {
 }
 
 window.onload = loadTournament
+document.getElementById('back-link').onclick = function() {
+    history.back()
+}

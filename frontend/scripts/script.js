@@ -5,7 +5,7 @@ const FILTERS = ['search', 'game', 'skill_level', 'open']
 
 // When page loads, we call the backend to get available tournaments and display them.
 function loadPageOfResults(api, page, replaceState, setDefault) {
-        // Calls backend api for tournaments matching the filters, and the user's registrations, at the same time
+    // Calls backend api for tournaments matching the filters, and the user's registrations, at the same time
     const tournaments = fetch(API_URL + '/api/' + api  + '/' + page + '?' + getFilters(), {headers: getHeader()})
     .then(response => response.json()) // Parse response JSON into an array
 
