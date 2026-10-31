@@ -8,6 +8,11 @@ import sqlite3
 import datetime
 import os
 
+# FOR THIS BRANCH
+#TODO: Add ability to view joined tournaments
+#TODO: Add ability to switch between owned and joined
+#TODO: Make it so that 'back to tournaments' returns to the proper page
+
 
 #TODO: Add ability for user to see list of owned tournaments
 #TODO: Add tournament functionality
