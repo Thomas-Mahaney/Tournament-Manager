@@ -18,3 +18,43 @@ body {
 #filter-form {
     margin: 12px 0;
 }
+
+#error-message {
+    color: #b00020;
+}
+
+/* Create tournament form: one field per line */
+#tournament-form {
+    max-width: 400px;
+}
+
+#tournament-form label {
+    display: block;
+    margin-top: 10px;
+}
+
+#tournament-form input,
+#tournament-form select,
+#tournament-form textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#tournament-form button {
+    margin-top: 16px;
+}
+
+
+/* Register / withdraw area on each tournament */
+.registration-status {
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.registration-message {
+    color: #b00020;
+}
+
+button:disabled {
+    cursor: not-allowed;
+}

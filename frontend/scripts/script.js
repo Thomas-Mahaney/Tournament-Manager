@@ -5,20 +5,13 @@ const FILTERS = ['search', 'game', 'skill_level', 'open']
 
 // When page loads, we call the backend to get available tournaments and display them.
 function loadPageOfResults(page, replaceState, setDefault) {
-    //fetch('http://localhost:5000/api/get_tournaments/' + page) // Calls backend api for tournaments
-    fetch(API_URL + '/api/get_tournaments/' + page + '?' + getFilters()) // Calls backend api for tournaments matching the filters
+        // Calls backend api for tournaments matching the filters, and the user's registrations, at the same time
+    const tournaments = fetch(API_URL + '/api/get_tournaments/' + page + '?' + getFilters())
     .then(response => response.json()) // Parse response JSON into an array
-    .then(data => {
-        /*
-        // Check if there's any entries
-        if (data.length == 0) { 
-            if (setDefault & page != DEFAULT_PAGE) { // set page count to 1 and reload if attempting to load an empty page. Don't do this if page 1 is empty to avoid loop.
-                page = DEFAULT_PAGE
-                loadPageOfResults(page)
-            }
-            return null // Do not proceed any further
-        }
-        */
+
+    Promise.all([tournaments, getMyRegistrations()])
+    .then(([data, registrations]) => {
+
         // Do not show an empty page past the end of the results
         if (data.length == 0 && page != DEFAULT_PAGE) {
             if (setDefault) { // set page count to 1 and reload if attempting to load an empty page
@@ -57,11 +50,14 @@ function loadPageOfResults(page, replaceState, setDefault) {
                 newDiv.appendChild(newField(category, entry[category]))
             }
 
-            // Create registration button
-            const newButton = document.createElement('button')
-            newButton.innerText = "Register"
-            newDiv.appendChild(newButton)
-
+            // Player count, then register/withdraw buttons. After a change, reload the same page
+            newDiv.appendChild(newPlayerCount(entry))
+            buildRegistrationArea(entry, registrations[entry.tournament_id], () => loadPageOfResults(getPage(), true))
+            .then( data => {
+                newDiv.appendChild(data)
+            })
+            
+            
             // Append our entry div into the main tournament-list div
             list.appendChild(newDiv)
         })
