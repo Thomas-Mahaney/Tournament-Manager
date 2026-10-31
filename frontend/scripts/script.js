@@ -4,9 +4,9 @@ const DEFAULT_PAGE = 1
 const FILTERS = ['search', 'game', 'skill_level', 'open']
 
 // When page loads, we call the backend to get available tournaments and display them.
-function loadPageOfResults(page, replaceState, setDefault) {
+function loadPageOfResults(api, page, replaceState, setDefault) {
         // Calls backend api for tournaments matching the filters, and the user's registrations, at the same time
-    const tournaments = fetch(API_URL + '/api/get_tournaments/' + page + '?' + getFilters())
+    const tournaments = fetch(API_URL + '/api/' + api  + '/' + page + '?' + getFilters(), {headers: getHeader()})
     .then(response => response.json()) // Parse response JSON into an array
 
     Promise.all([tournaments, getMyRegistrations()])
@@ -15,7 +15,7 @@ function loadPageOfResults(page, replaceState, setDefault) {
         // Do not show an empty page past the end of the results
         if (data.length == 0 && page != DEFAULT_PAGE) {
             if (setDefault) { // set page count to 1 and reload if attempting to load an empty page
-                loadPageOfResults(DEFAULT_PAGE, true)
+                loadPageOfResults(api, DEFAULT_PAGE, true)
             }
             return null // Do not go any further
         }
@@ -52,7 +52,7 @@ function loadPageOfResults(page, replaceState, setDefault) {
 
             // Player count, then register/withdraw buttons. After a change, reload the same page
             newDiv.appendChild(newPlayerCount(entry))
-            buildRegistrationArea(entry, registrations[entry.tournament_id], () => loadPageOfResults(getPage(), true))
+            buildRegistrationArea(entry, registrations[entry.tournament_id], () => loadPageOfResults(api, getPage(), true))
             .then( data => {
                 newDiv.appendChild(data)
             })
@@ -175,14 +175,14 @@ function loadFilterOptions() {
 window.onload = function() {
     loadFilterOptions().then(() => {
         showFiltersInForm()
-        loadPageOfResults(getPage(), true, true)
+        loadPageOfResults(PAGE_API, getPage(), true, true)
     })
 }
 
 // Update results when using foward and back history arrows on browser
 window.onpopstate = function() {
     showFiltersInForm()
-    loadPageOfResults(getPage(), true)
+    loadPageOfResults(PAGE_API, getPage(), true)
 }
 
 // Apply filters when the form is submitted. Goes back to page 1 since the results have changed.
@@ -197,24 +197,24 @@ document.getElementById('filter-form').onsubmit = function(event) {
         open: inputs.open.checked ? 'true' : '',
         page: DEFAULT_PAGE,
     })
-    loadPageOfResults(DEFAULT_PAGE, true)
+    loadPageOfResults(PAGE_API, DEFAULT_PAGE, true)
 }
 
 // Clear all filters and show every tournament again
 document.getElementById('filter-clear').onclick = function() {
     updateURL({ search: '', game: '', skill_level: '', open: '', page: DEFAULT_PAGE})
     showFiltersInForm()
-    loadPageOfResults(DEFAULT_PAGE, true)
+    loadPageOfResults(PAGE_API, DEFAULT_PAGE, true)
 }
 
 // Change page using page select arrows on bottom of page.
 document.getElementById('page-back').onclick = function() {
     let page = getPage() - 1
     if (page < 1) { return null}
-    loadPageOfResults(page)
+    loadPageOfResults(PAGE_API, page)
 }
 
 document.getElementById('page-next').onclick = function() {
     let page = getPage() + 1
-    loadPageOfResults(page)
+    loadPageOfResults(PAGE_API, page)
 }

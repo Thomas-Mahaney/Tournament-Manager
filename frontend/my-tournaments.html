@@ -17,6 +17,18 @@
             <button>Owned</button>
         </div>
         <br>
+        <form id="filter-form">
+          <input type="text" name="search" placeholder="Search tournaments...">
+          <select name="game">
+              <option value="">All games</option>
+            </select>
+          <select name="skill_level">
+              <option value="">All skill levels</option>
+          </select>
+            <label><input type="checkbox" name="open"> Open for registration</label>
+          <button type="submit">Apply</button>
+          <button type="button" id="filter-clear">Clear</button>
+        </form>
         <div id="tournament-list"></div>
         <div id="page-select">
             <button id="page-back"><</button>
@@ -24,4 +36,9 @@
             <button id="page-next">></button>
         </div>
     </body>
+
+    <script src="scripts/common.js"></script>
+    <script src="scripts/registration.js"></script>
+    <script src="scripts/my-lists.js"></script>
+    <script src="scripts/script.js"></script>
 </html>

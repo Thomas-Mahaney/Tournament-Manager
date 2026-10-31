@@ -19,7 +19,7 @@ import os
     # Subpage: Tournament-specific dashboard
         # Shows matches
         # Shows registered users and waitlist <--
-        # Lets host edit tournament details
+        # Lets host edit tournament details <--
         # Lets host change user positions
         # Lets host declare match winner
 
@@ -532,22 +532,39 @@ def get_joined(): # UNTESTED
     return jsonify(results), 200
     
 
-@app.route('/api/get_owned_tournaments')
+@app.route('/api/get_owned_tournaments/<int:page>')
 @jwt_required()
-def get_owned():
+def get_owned(page):
     # Get id of user
     current_user = int(get_jwt_identity())
 
-    # Query database for all tournaments containing an identical host_id
+    # Connect to database
     connection = get_connection()
     cursor = connection.cursor()
-
-    cursor.execute("SELECT * FROM Tournament WHERE host_user_id = ? ORDER BY tournament_id DESC", (current_user,))
+    
+    # Query current page of tournaments
+    where, values = build_filters(request.args)
+    keyword = 'AND'
+    if (where == ''):
+        keyword = 'WHERE'
+    cursor.execute('''
+        SELECT *,
+        ''' + REGISTRATION_COLUMNS + '''
+        FROM Tournament
+        ''' + where + keyword + '''
+        host_user_id = ? 
+        ORDER BY tournament_id DESC
+        LIMIT ? OFFSET ?;
+    ''', values + [current_user] + [ENTRY_PER_PAGE, ENTRY_PER_PAGE * (page - 1)])
+    
+    # Get all results and convert them into a list of dictionaries
     results = get_results(cursor.fetchall())
+
+    # Close connection
     connection.close()
 
-    # Convert to json string and send to requester
-    return jsonify(results), 200
+    # Convert results into a JSON string and send it back to frontend
+    return jsonify(results)
 
 
 

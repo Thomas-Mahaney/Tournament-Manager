@@ -1,0 +1,1 @@
+PAGE_API = 'get_tournaments'
