@@ -5,6 +5,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import datetime
+import os
 
 #TODO: Add tournament filtering
 #TODO: Add tournament creation
@@ -25,7 +26,7 @@ import datetime
         # Lets host declare match winner
 
 # Constant variables used for database functions
-DATABASE_NAME = 'test_database.db' # Name of the database the program will interact with
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # Folder this file is in, so the database is found no matter where the server is started from
 ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the list
 
 # Initialize app
@@ -233,15 +234,6 @@ def get_tournament(tournament_id):
         return {'error': 'Tournament not found'}, 404
     return jsonify(dict(result))
 
-# Changes to the backend
-#   1. get_tournaments() now applies the filters and also returns tournament_id, so the list can link to each tournament
-#   2. get_filter_options() fills the dropdown menus
-#   3. get_tournament() returns a single tournament
-#   4. get_connection() keeps the connection code in one place, and makes it easy to change values later (I think)
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
 
 @app.route('/api/get_joined_tournaments')
 @jwt_required()
@@ -306,3 +298,9 @@ def get_dashboard(tournament_id):
 
     # Merge all data and return to client
     return 'DATA'
+
+
+##############################
+if __name__ == '__main__':
+    app.run(debug=True)
+##############################
