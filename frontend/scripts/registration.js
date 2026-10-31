@@ -47,7 +47,7 @@ function buildRegistrationArea(tournament, mine, onChange) {
 
     const now = new Date()
     const registrationClosed = now >= toDate(tournament.deadline)
-    const withdrawalsClosed = now >- toDate(tournament.withdraw_cutoff)
+    const withdrawalsClosed = now >= toDate(tournament.withdraw_cutoff)
     const status = mine ? mine.status : null
 
     function addLabel(text) {
