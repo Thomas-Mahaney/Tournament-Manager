@@ -1,4 +1,4 @@
-import { getHeader } from "./exports.js";
+import { getHeader, API_URL } from "./exports.js";
 
 function isTokenValid(token) {
   try {
@@ -12,7 +12,6 @@ function isTokenValid(token) {
 function displayButtons() {
     // Check if user is logged in
     let is_logged_in = isTokenValid(localStorage.getItem('accessToken'))
-    console.log(is_logged_in)
 
     // toggle button visibility
     document.getElementById('not-logged').hidden = is_logged_in
@@ -22,7 +21,7 @@ function displayButtons() {
 window.addEventListener('load', displayButtons())
 
 document.getElementById('logout').onclick = function() {
-    fetch('http://localhost:5000/api/logout', {
+    fetch(API_URL + '/api/logout', {
         method: 'GET',
         headers: getHeader()
     })

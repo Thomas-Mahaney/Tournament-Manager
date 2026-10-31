@@ -31,7 +31,10 @@ function loadTournament() {
 
         // Player count, then register / withdraw buttons. After a change, reload this tournament.
         details.appendChild(newPlayerCount(tournament))
-        details.appendChild(buildRegistrationArea(tournament, registrations[tournament.tournament_id], loadTournament))
+        buildRegistrationArea(tournament, registrations[tournament.tournament_id], loadTournament)
+            .then( data => {
+                details.appendChild(data)
+            })
 
     })
     .catch(error => {

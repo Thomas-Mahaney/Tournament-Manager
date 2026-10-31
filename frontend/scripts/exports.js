@@ -1,3 +1,5 @@
+const API_URL = 'http://localhost:5000'
+
 // simple function used to create a header that's dependent on whether a token exists
 export function getHeader() {
     var header = {}
@@ -9,7 +11,7 @@ export function getHeader() {
 
 export function requestUser(api, body) {
     // request api and send our form data through
-    return fetch('http://localhost:5000/api/' + api, {
+    return fetch(API_URL + '/api/' + api, {
         method: 'POST',
         body: body,
         headers: getHeader()

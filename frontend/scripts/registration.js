@@ -71,23 +71,33 @@ function buildRegistrationArea(tournament, mine, onChange) {
         area.appendChild(button)
     }
 
-    if (status == 'registered' || status == 'waitlisted') {
-        addLabel(status == 'registered' ? 'Registered ✓' : 'Waitlisted (#' + mine.position + ')')
-        const cutoff = toDate(tournament.withdraw_cutoff).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
-        addButton(status == 'registered' ? 'Withdraw' : 'Leave waitlist',
-            () => sendRegistration('withdraw', tournament, message, onChange),
-            withdrawalsClosed ? 'Withdrawals closed at ' + cutoff : null)
-    } else if (registrationClosed) {
-        addButton('Registration closed', null, 'The registration deadline has passed')
-    } else if (!isLoggedIn()) {
-        addButton('Log in to register', () => { location.href = 'login.html' })
-    } else {
-        const full = tournament.registered_count >= tournament.player_cap
-        addButton(full ? 'Join waitlist' : 'Register', () => sendRegistration('register', tournament, message, onChange))
-    }
+    let is_owner = false
+    return authFetch('/api/get_id')
+    .then(result => {
+        if (result.data.id == tournament.host_user_id) {
+            is_owner = true
+        }
 
-    area.appendChild(message)
-    return area
+        if (is_owner) {
+            addButton('Owned', null, "Unable to join tournaments you own")
+        } else if (status == 'registered' || status == 'waitlisted') {
+            addLabel(status == 'registered' ? 'Registered ✓' : 'Waitlisted (#' + mine.position + ')')
+            const cutoff = toDate(tournament.withdraw_cutoff).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+            addButton(status == 'registered' ? 'Withdraw' : 'Leave waitlist',
+                () => sendRegistration('withdraw', tournament, message, onChange),
+                withdrawalsClosed ? 'Withdrawals closed at ' + cutoff : null)
+        } else if (registrationClosed) {
+            addButton('Registration closed', null, 'The registration deadline has passed')
+        } else if (!isLoggedIn()) {
+            addButton('Log in to register', () => { location.href = 'login.html' })
+        } else {
+            const full = tournament.registered_count >= tournament.player_cap
+            addButton(full ? 'Join waitlist' : 'Register', () => sendRegistration('register', tournament, message, onChange))
+        }
+
+        area.appendChild(message)
+        return area
+    })
 }
 
 // Sends a register or withdraw request, then lets the page refresh

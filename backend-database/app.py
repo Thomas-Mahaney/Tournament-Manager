@@ -10,15 +10,15 @@ import os
 
 
 #TODO: Add ability for user to see list of owned tournaments
-#TODO: Add dashboard for tournament that shows matches, registrations, and waitlist
 #TODO: Add tournament functionality
 #TODO: Polish frontend interface
 
 #TODO: DASHBOARD
-    # Lets users see tournaments they're in
-    # Lets users see tournaments they own
+    # Lets users see tournaments they're in <--
+    # Lets users see tournaments they own <--
     # Subpage: Tournament-specific dashboard
-        # Shows matchs, registrations, waitlist
+        # Shows matches
+        # Shows registered users and waitlist <--
         # Lets host edit tournament details
         # Lets host change user positions
         # Lets host declare match winner
@@ -323,6 +323,12 @@ def logout():
     connection.close()
     return {'success': True}
 
+@app.route('/api/get_id', methods=['GET'])
+@jwt_required()
+def get_id():
+    user_id = get_jwt_identity()
+    return {'id': user_id}
+
 # TOURNAMENT CREATION [EDIT?] [REMOVE?]
 @app.route('/api/create_tournament', methods=['POST'])
 @jwt_required()
@@ -366,7 +372,7 @@ def get_tournaments(page):
     # Query current page of tournaments
     where, values = build_filters(request.args)
     cursor.execute('''
-        SELECT tournament_id, title, game, description, skill_level, location, start_time, deadline, player_cap,
+        SELECT *,
         ''' + REGISTRATION_COLUMNS + '''
         FROM Tournament
         ''' + where + '''
@@ -402,7 +408,7 @@ def get_tournament(tournament_id):
     cursor = connection.cursor()
     
     cursor.execute('''
-        SELECT tournament_id, title, game, description, skill_level, location, start_time, deadline, player_cap,
+        SELECT *,
         ''' + REGISTRATION_COLUMNS + '''
         FROM Tournament
         WHERE tournament_id = ?;
@@ -429,9 +435,11 @@ def register(tournament_id):
         tournament = get_tournament_row(cursor, tournament_id)
         if not tournament:
             return fail('Tournament not found.', 404)
+        if tournament['host_user_id'] == user_id:
+            return fail('Cannot join tournament you own.')
         if datetime.datetime.now() >= from_db_time(tournament['deadline']):
             return fail('Registration for this tournament has closed.')
-
+        
         # A withdrawn row is history, so that user is allowed to sign up again
         cursor.execute('SELECT status FROM Participants WHERE tournament_id = ? AND user_id = ?', (tournament_id, user_id))
         existing = cursor.fetchone()
