@@ -7,8 +7,6 @@ import sqlite3
 import datetime
 import os
 
-#TODO: Add tournament filtering
-#TODO: Add tournament creation
 #TODO: Add tournament registration
 #TODO: Add waitlist functionality
 #TODO: Add ability for user to see list of owned tournaments
@@ -28,6 +26,11 @@ import os
 # Constant variables used for database functions
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # Folder this file is in, so the database is found no matter where the server is started from
 ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the list
+#Tournament Rules
+SKILL_LEVELS = ['Beginner', 'Intermediate', 'Expert'] # Allowed skill levels, in the order dropdowns show them
+MIN_PLAYER_CAP = 2
+MAX_PLAYER_CAP = 256
+TIME_FORMAT = '%Y-%m-%d %H:%M:%S' # How times are stored in the database (local time)
 
 # Initialize app
 app = Flask(__name__)
@@ -36,7 +39,10 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
 CORS(app, supports_credentials=True, allow_headers=["Authorization", "Content-Type"])
 jwt = JWTManager(app)
 
+
+#################################
 # FUNCTIONS
+#################################
 
 # Function for quickly setting up database connection
 def get_connection():
@@ -78,7 +84,68 @@ def build_filters(args):
 def get_results(query):
     return [dict(entry) for entry in query]
 
+# Standard Error Response: a message for the user plus a matching HTTP status code
+def fail(msg, status= 400):
+    return jsonify({'success': False, 'msg': msg}), status
+
+# Reads a time from a datetime-local input, '2026-11-05T18:00'
+def parse_form_time(value):
+    try:
+        time = datetime.datetime.fromisoformat((value or '').strip())
+    except ValueError:
+        return None
+    return time.replace(second=0, microsecond=0, tzinfo=None)
+
+# Checks the create tournament form. Returns (data, None) if it's valid, or (None, error msg) if not.
+def validate_tournament_form(form):
+    data = {}
+
+    # Required text fields, with a maximum length for each
+    for field, label, max_length in [('title', 'Title', 100), ('game', 'Game', 50), ('skill_level', 'Skill level', 20)]:
+        value = (form.get(field) or '').strip()
+        if not value:
+            return None, label + ' is required.'
+        if len(value) > max_length:
+            return None, f'{label} must be {max_length} characters or less.'
+        data[field] = value
+
+    if data['skill_level'] not in SKILL_LEVELS:
+        return None, 'Skill level must be one of: ' + ', '.join(SKILL_LEVELS) + '.'
+
+    # Optional text fields are stored as NULL when left empty, so the frontend shows "TBD"
+    for field, label, max_length in [('description', 'Description', 2000), ('location', 'Location', 100)]:
+        value = (form.get(field) or '').strip()
+        if len(value) > max_length:
+            return None, f'{label} must be {max_length} characters or less.'
+        data[field] = value or None
+
+    try:
+        data['player_cap'] = int(form.get('player_cap', ''))
+    except (TypeError, ValueError):
+        return None, 'Player cap must be a whole number.'
+    if not MIN_PLAYER_CAP <= data['player_cap'] <= MAX_PLAYER_CAP:
+        return None, f'Player cap must be between {MIN_PLAYER_CAP} and {MAX_PLAYER_CAP}'
+
+    now = datetime.datetime.now()
+    start_time = parse_form_time(form.get('start_time'))
+    deadline = parse_form_time(form.get('deadline'))
+    if not start_time or not deadline:
+        return None, 'Start time and registration deadline must both be valid dates.'
+    if start_time <= now:
+        return None, 'Start time must be in the future.'
+    if deadline <= now:
+        return None, 'Registration deadline must be in the future.'
+    if deadline > start_time:
+        return None, 'Registration deadline must be before the start time.'
+    data['start_time'] = start_time.strftime(TIME_FORMAT)
+    data['deadline'] = deadline.strftime(TIME_FORMAT)
+
+    return data, None
+
+
+##########################
 # USER AUTHENTICATION APIS
+##########################
 
 # Handles signing up a new user
 @app.route('/api/signup', methods=['POST'])
@@ -167,12 +234,35 @@ def logout():
 
 # TOURNAMENT CREATION [EDIT?] [REMOVE?]
 @app.route('/api/create_tournament', methods=['POST'])
+@jwt_required()
 def create_tournament():
-    # Get form data
-    # Create tournament with data and insert into database
-    pass
+    # The host is whoever is logged in. Never trust a host id sent from the form
+    host_id = int(get_jwt_identity())
 
+    # Check the form, and send back the first problem found
+    data, error = validate_tournament_form(request.form)
+    if error:
+        return fail(error)
+
+    # Insert the new tournament
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute('''
+        INSERT INTO Tournament (host_user_id, title, game, description, skill_level, start_time, deadline, location, player_cap)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (host_id, data['title'], data['game'], data['description'], data['skill_level'],
+          data['start_time'], data['deadline'], data['location'], data['player_cap']))
+    tournament_id = cursor.lastrowid    # This is the id SQLite gave the new row
+    connection.commit()
+    connection.close()
+
+    # 201 means "created". The frontend uses the id to open the new tournament's page.
+    return jsonify({'success': True, 'tournament_id': tournament_id}), 201
+
+
+###################################
 # TOURNAMENT GETTERS
+###################################
 
 # Gets a page of tournaments from database and returns them.
 # Implement filters [sort-by?]
@@ -208,11 +298,10 @@ def get_filter_options():
     cursor = connection.cursor()
     
     games = [row['game'] for row in cursor.execute('SELECT DISTINCT game FROM Tournament ORDER BY game;')]
-    skill_levels = [row['skill_level'] for row in cursor.execute('SELECT DISTINCT skill_level FROM Tournament ORDER BY skill_level;')]
     
     connection.close()
     
-    return jsonify({'games': games, 'skill_levels': skill_levels})
+    return jsonify({'games': games, 'skill_levels': SKILL_LEVELS})
 
 # Gets all details for a single tournament. Used by the tournament viewer page.
 @app.route("/api/get_tournament/<int:tournament_id>")
@@ -272,7 +361,11 @@ def get_owned():
     # Convert to json string and send to requester
     return jsonify(results), 200
 
+
+
+#######################################
 # DASHBOARD ROUTES
+#######################################
 
 @app.route('/api/get_dashboard_data/<int:tournament_id>')
 @jwt_required()

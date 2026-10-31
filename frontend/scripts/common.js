@@ -38,3 +38,38 @@ function newField(category, value) {
 }
 
 
+// LOGIN HELPERS
+// These do the same job as the ones in exports.js, for the scripts that aren't modules
+// TODO: merge with exports.js once every script is a module
+
+// True if there's a login token that hasn't expired yet
+// This doesn't prove the token is real, only the server can, it just decides what to show
+function isLoggedIn() {
+    try {
+        const token = localStorage.getItem('accessToken')
+        const { exp } = JSON.parse(atob(token.split('.')[1]))
+        return Date.now() < exp * 1000
+    }
+    catch (err) {
+        return false
+    }
+}
+
+// Calls the backend with the login token attached
+// Always gives back { ok, status, data } so callers can check result.ok instead of catching errors
+// If the server says the token expired or was logged out, the token is removed
+function authFetch(path, options = {}) {
+    const headers = {}
+    const token = localStorage.getItem('accessToken')
+    if (token) { headers['Authorization'] = 'Bearer ' + token}
+
+    return fetch(API_URL + path, { ...options, headers: headers})
+    .then(response => response.json()
+    .catch(() => ({})) // Error pages from the server aren't JSON
+        .then(data => {
+            if (response.status == 401 && (data.msg == 'Token has expired' || data.msg == 'Token has been revoked')) {
+                localStorage.removeItem('accessToken')
+            }
+            return { ok: response.ok, status: response.status, data: data }
+        }))
+}

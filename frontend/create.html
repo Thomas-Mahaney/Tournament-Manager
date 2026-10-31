@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Create Tournament</title>
+        <link rel="stylesheet" href="stylesheets/style.css">
+    </head>
+
+    <body>
+        <a href="index.html">&larr; Back to tournaments</a>
+        <h1>Create Tournament</h1>
+        <p id="error-message"></p>
+        <form id="tournament-form">
+            <label for="title">Title: </label>
+            <input type="text" id="title" name="title" maxlength="100" required>
+
+            <label for="game">Game: </label>
+            <input type="text" id="game" name="game" list="game-options" maxlength="50" required>
+            <datalist id="game-options"></datalist>
+
+            <label for="skill_level">Skill Level: </label>
+            <select id="skill_level" name="skill_level" required>
+                <option value="">Choose a skill level</option>
+            </select>
+
+            <label for="description">Description: </label>
+            <textarea id="description" name="description" maxlength="2000" rows="4"></textarea>
+
+            <label for="location">Location: </label>
+            <input type="text" id="location" name="location" maxlength="100">
+
+            <label for="start_time">Start Time: </label>
+            <input type="datetime-local" id="start_time" name="start_time" required>
+
+            <label for="deadline">Registration Deadline: </label>
+            <input type="datetime-local" id="deadline" name="deadline" required>
+
+            <label for="player_cap">Player Cap: </label>
+            <input type="number" id="player_cap" name="player_cap" min="2" max="256" required>
+
+            <button type="submit">Create Tournament</button>
+        </form>
+    </body>
+
+    <script src="scripts/common.js"></script>
+    <script src="scripts/create.js"></script>
+</html>
