@@ -55,7 +55,7 @@ function loadPageOfResults(api, page, replaceState, setDefault) {
 
                 // Player count, then register/withdraw buttons. After a change, reload the same page
                 newDiv.appendChild(newPlayerCount(entry))
-                newDiv.appendChild(buildRegistrationArea(entry, result.data.id, registrations[entry.tournament_id], () => loadPageOfResults(getPage(), true)))
+                newDiv.appendChild(buildRegistrationArea(entry, result.data.id, registrations[entry.tournament_id], () => loadPageOfResults(api, getPage(), true)))
                 
                 // Append our entry div into the main tournament-list div
                 list.appendChild(newDiv)
