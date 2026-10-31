@@ -3,12 +3,12 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import generate_password_hash, check_password_hash
+from contextlib import contextmanager
 import sqlite3
 import datetime
 import os
 
-#TODO: Add tournament registration
-#TODO: Add waitlist functionality
+
 #TODO: Add ability for user to see list of owned tournaments
 #TODO: Add dashboard for tournament that shows matches, registrations, and waitlist
 #TODO: Add tournament functionality
@@ -32,6 +32,28 @@ SKILL_LEVELS = ['Beginner', 'Intermediate', 'Expert'] # Allowed skill levels, in
 MIN_PLAYER_CAP = 2
 MAX_PLAYER_CAP = 256
 TIME_FORMAT = '%Y-%m-%d %H:%M:%S' # How times are stored in the database (local time)
+WITHDRAW_CUTOFF_HOURS = 2   # Within this many hours of the start, players can't withdraw and nobody gets promoted
+
+# Extra columns added to tournament queries: live player counts and when withdrawals close
+# WITHDRAW_CUTOFF_HOURS is a number we set ourselves, so putting it into the SQL is safe
+REGISTRATION_COLUMNS = f'''
+    datetime(start_time, '-{WITHDRAW_CUTOFF_HOURS} hours') AS withdraw_cutoff,
+    (SELECT COUNT(*) FROM Participants p
+        WHERE p.tournament_id = Tournament.tournament_id AND p.status = 'registered') AS registered_count,
+    (SELECT COUNT(*) FROM Participants p
+        WHERE p.tournament_id = Tournament.tournament_id AND p.status = 'waitlisted') AS waitlist_count
+'''
+
+# A waitlisted player's place in line (1 = next to be promoted). Used inside queries where the player's
+# Participants row is named "p". Players who signed up at the same instant are ordered by insert order (rowid).
+WAITLIST_POSITION = '''
+    (SELECT COUNT(*) FROM Participants w
+        WHERE w.tournament_id = p.tournament_id AND w.status = 'waitlisted'
+        AND (w.registration_time < p.registration_time
+             OR (w.registration_time = p.registration_time AND w.rowid <= p.rowid)))
+'''
+
+
 
 # Initialize app
 app = Flask(__name__)
@@ -142,6 +164,74 @@ def validate_tournament_form(form):
     data['deadline'] = deadline.strftime(TIME_FORMAT)
 
     return data, None
+
+
+# Opens a connection for changes that have to happen together (count players, then save).
+# BEGIN IMMEDIATE locks the database for writing straight away, so two people grabbing the last
+# spot at the same time are handled one after the other. Commits at the end, undoes everything on an error.
+# Usage: with write_transaction() as cursor: ...
+@contextmanager
+def write_transaction():
+    connection = get_connection()
+    connection.isolation_level = None # We send BEGIN/COMMIT ourselves
+    cursor = connection.cursor()
+    try:
+        cursor.execute('BEGIN IMMEDIATE')
+        yield cursor
+        cursor.execute('COMMIT')
+    except Exception:
+        cursor.execute('ROLLBACK')
+        raise
+    finally:
+        connection.close()
+
+# Converts a time from the database ("YYYY-MM-DD HH:MM:SS") into a datetime
+def from_db_time(text):
+    return datetime.datetime.strptime(text[:19], TIME_FORMAT)
+
+# The moment withdrawals (and waitlist promotions) stop for a tournament
+def withdraw_cutoff(tournament):
+    return from_db_time(tournament['start_time']) - datetime.timedelta(hours=WITHDRAW_CUTOFF_HOURS)
+
+# Gets the raw tournament row, or None if it doesn't exist
+def get_tournament_row(cursor, tournament_id):
+    cursor.execute('SELECT * FROM Tournament WHERE tournament_id = ?', (tournament_id,))
+    return cursor.fetchone()
+
+# How many players are confirmed for a tournament
+def count_registered(cursor, tournament_id):
+    cursor.execute("SELECT COUNT(*) FROM Participants WHERE tournament_id = ? AND status = 'registered'", (tournament_id,))
+    return cursor.fetchone()[0]
+
+# A user's place on a tournament's waitlist
+def waitlist_position(cursor, tournament_id, user_id):
+    cursor.execute('SELECT ' + WAITLIST_POSITION + ' FROM Participants p WHERE p.tournament_id = ? AND p.user_id = ?',
+                   (tournament_id, user_id))
+    return cursor.fetchone()[0]
+
+# Fills any open spots with the players who have waited longest.
+# Only runs before the withdrawal cutoff. Returns how many players were promoted.
+def promote_from_waitlist(cursor, tournament):
+    if datetime.datetime.now() >= withdraw_cutoff(tournament):
+        return 0
+
+    open_spots = tournament['player_cap'] - count_registered(cursor, tournament['tournament_id'])
+    if open_spots <= 0:
+        return 0
+
+    cursor.execute('''
+        SELECT user_id FROM Participants
+        WHERE tournament_id = ? AND status = 'waitlisted'
+        ORDER BY registration_time, rowid
+        LIMIT ?
+    ''', (tournament['tournament_id'], open_spots))
+    promoted = [row['user_id'] for row in cursor.fetchall()]
+
+    for user_id in promoted:
+        cursor.execute("UPDATE Participants SET status = 'registered' WHERE tournament_id = ? AND user_id = ?",
+                       (tournament['tournament_id'], user_id))
+    return len(promoted)
+
 
 
 ##########################
@@ -276,7 +366,8 @@ def get_tournaments(page):
     # Query current page of tournaments
     where, values = build_filters(request.args)
     cursor.execute('''
-        SELECT tournament_id, title, game, description, skill_level, location, start_time, deadline, player_cap
+        SELECT tournament_id, title, game, description, skill_level, location, start_time, deadline, player_cap,
+        ''' + REGISTRATION_COLUMNS + '''
         FROM Tournament
         ''' + where + '''
         ORDER BY tournament_id DESC
@@ -311,7 +402,8 @@ def get_tournament(tournament_id):
     cursor = connection.cursor()
     
     cursor.execute('''
-        SELECT tournament_id, title, game, description, skill_level, location, start_time, deadline, player_cap
+        SELECT tournament_id, title, game, description, skill_level, location, start_time, deadline, player_cap,
+        ''' + REGISTRATION_COLUMNS + '''
         FROM Tournament
         WHERE tournament_id = ?;
     ''', (tournament_id,))
@@ -323,6 +415,93 @@ def get_tournament(tournament_id):
     if result is None:
         return {'error': 'Tournament not found'}, 404
     return jsonify(dict(result))
+
+
+# REGISTRATION
+
+# Signs the logged in user up. Confirmed if there's space, otherwise added to the waitlist.
+@app.route('/api/register/<int:tournament_id>', methods=['POST'])
+@jwt_required()
+def register(tournament_id):
+    user_id = int(get_jwt_identity())
+
+    with write_transaction() as cursor:
+        tournament = get_tournament_row(cursor, tournament_id)
+        if not tournament:
+            return fail('Tournament not found.', 404)
+        if datetime.datetime.now() >= from_db_time(tournament['deadline']):
+            return fail('Registration for this tournament has closed.')
+
+        # A withdrawn row is history, so that user is allowed to sign up again
+        cursor.execute('SELECT status FROM Participants WHERE tournament_id = ? AND user_id = ?', (tournament_id, user_id))
+        existing = cursor.fetchone()
+        if existing and existing['status'] != 'withdrawn':
+            return fail('You are already signed up for this tournament.', 409)
+
+        # Counting and saving happen inside the same locked transaction, so the cap can't be overfilled
+        if count_registered(cursor, tournament_id) < tournament['player_cap']:
+            status = 'registered'
+        else:
+            status = 'waitlisted'
+
+        # Microseconds keep the waitlist order exact when people sign up in the same second
+        signed_up_at = datetime.datetime.now().strftime(TIME_FORMAT + '.%f')
+        if existing:
+            # Signing up again after withdrawing goes to the back of the line
+            cursor.execute('UPDATE Participants SET status = ?, registration_time = ? WHERE tournament_id = ? AND user_id = ?',
+                           (status, signed_up_at, tournament_id, user_id))
+        else:
+            cursor.execute('INSERT INTO Participants (tournament_id, user_id, status, registration_time) VALUES (?, ?, ?, ?)',
+                           (tournament_id, user_id, status, signed_up_at))
+
+        position = waitlist_position(cursor, tournament_id, user_id) if status == 'waitlisted' else None
+
+    return jsonify({'success': True, 'status': status, 'position': position})
+
+# Takes the logged in user out of a tournament (or off its waitlist) and promotes the next waiting player
+@app.route('/api/withdraw/<int:tournament_id>', methods=['POST'])
+@jwt_required()
+def withdraw(tournament_id):
+    user_id = int(get_jwt_identity())
+
+    with write_transaction() as cursor:
+        tournament = get_tournament_row(cursor, tournament_id)
+        if not tournament:
+            return fail('Tournament not found.', 404)
+        if datetime.datetime.now() >= withdraw_cutoff(tournament):
+            return fail(f'Withdrawals close {WITHDRAW_CUTOFF_HOURS} hours before the tournament starts.')
+
+        cursor.execute('SELECT status FROM Participants WHERE tournament_id = ? AND user_id = ?', (tournament_id, user_id))
+        existing = cursor.fetchone()
+        if not existing or existing['status'] == 'withdrawn':
+            return fail('You are not signed up for this tournament.', 409)
+
+        # Keep the row as history instead of deleting it
+        cursor.execute("UPDATE Participants SET status = 'withdrawn' WHERE tournament_id = ? AND user_id = ?",
+                       (tournament_id, user_id))
+        promoted = promote_from_waitlist(cursor, tournament)
+
+    return jsonify({'success': True, 'promoted': promoted})
+
+# The logged in user's status in every tournament they're signed up for (not withdrawn),
+# with their waitlist position. The list and viewer pages use this to pick which buttons to show.
+@app.route('/api/my_registrations')
+@jwt_required()
+def my_registrations():
+    user_id = int(get_jwt_identity())
+
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute('''
+        SELECT p.tournament_id, p.status,
+            CASE WHEN p.status = 'waitlisted' THEN ''' + WAITLIST_POSITION + ''' END AS position
+        FROM Participants p
+        WHERE p.user_id = ? AND p.status != 'withdrawn'
+    ''', (user_id,))
+    results = get_results(cursor.fetchall())
+    connection.close()
+
+    return jsonify(results)
 
 
 @app.route('/api/get_joined_tournaments')

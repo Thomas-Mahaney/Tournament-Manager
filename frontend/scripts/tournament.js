@@ -4,7 +4,7 @@ function loadTournament() {
     const id = params.get('id')
     const details = document.getElementById('tournament-details')
 
-    fetch(API_URL + '/api/get_tournament/' + id)
+    const tournamentRequest = fetch(API_URL + '/api/get_tournament/' + id)
     .then(response => {
         // Backend sends a 404 if the tournament doesn't exist
         if (!response.ok) {
@@ -12,8 +12,10 @@ function loadTournament() {
         }
         return response.json()
     })
-    .then(tournament => {
-        // Show the title in the page heading and browser tab
+    Promise.all([tournamentRequest, getMyRegistrations()])
+    .then(([tournament, registrations]) => {
+        // Clear old content, since this also runs again after registering or withdrawing
+        details.replaceChildren()
         document.getElementById('tournament-title').innerText = tournament.title
         document.title = tournament.title
 
@@ -27,10 +29,10 @@ function loadTournament() {
             details.appendChild(newField(category, tournament[category]))
         }
 
-        // Placeholder registration button, same as the one on the list page
-        const button = document.createElement('button')
-        button.innerText = 'Register'
-        details.appendChild(button)
+        // Player count, then register / withdraw buttons. After a change, reload this tournament.
+        details.appendChild(newPlayerCount(tournament))
+        details.appendChild(buildRegistrationArea(tournament, registrations[tournament.tournament_id], loadTournament))
+
     })
     .catch(error => {
         document.getElementById('tournament-title').innerText = 'Tournament not found.'

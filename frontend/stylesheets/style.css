@@ -43,3 +43,18 @@ body {
 #tournament-form button {
     margin-top: 16px;
 }
+
+
+/* Register / withdraw area on each tournament */
+.registration-status {
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.registration-message {
+    color: #b00020;
+}
+
+button:disabled {
+    cursor: not-allowed;
+}
