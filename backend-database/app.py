@@ -531,7 +531,6 @@ def get_joined(page): # UNTESTED
     connection.close()
 
     # Convert to json string and send to requester
-    print(results)
     return jsonify(results), 200
     
 
@@ -586,19 +585,42 @@ def get_dashboard(tournament_id):
     current_user = int(get_jwt_identity())
 
     # Get tournament from id and host id
-    cursor.execute("SELECT * FROM Tournament WHERE tournament_id = ? AND host_user_id = ?", (tournament_id, current_user))
+    cursor.execute('''
+        SELECT * FROM Tournament
+        WHERE Tournament.tournament_id = ? AND Tournament.host_user_id = ?
+    ''', (tournament_id, current_user))
     tournament = cursor.fetchone()
 
     # Throw an error if unable to fetch tournament (usually means the tournament doesn't belong to user)
     if not tournament:
-        return {'success': False}
+        return {'success': False, 'msg': 'Tournament not found or you are not the host.'}, 404
 
-    # Fetch participants
+    # Fetch all participants
+    cursor.execute(''' 
+        SELECT * FROM Participants
+        WHERE tournament_id = ?
+        AND status <> 'withdrawn'
+    ''', (tournament_id,))
+    participants = get_results(cursor.fetchall())
 
-    # Fetch matches
+    # Fetch all matches
+    cursor.execute('''
+        SELECT * FROM Matches
+        WHERE tournament_id = ?
+    ''', (tournament_id,))
+    matches = get_results(cursor.fetchall())
 
-    # Merge all data and return to client
-    return 'DATA'
+    # Close connection
+    connection.close()
+
+    # Get all the info from the queries
+    results = {
+        'tournament': dict(tournament),
+        'participants': participants,
+        'matches': matches
+    }
+
+    return jsonify({'success': True, 'data': results}), 200
 
 
 ##############################
