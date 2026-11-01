@@ -14,7 +14,6 @@ owned.onclick = function() {
     })
 }
 
-// UPDATE API TO LOAD
 joined.onclick = function() {
     PAGE_API = 'get_joined_tournaments'
     owned.disabled = false

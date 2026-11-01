@@ -8,11 +8,6 @@ import sqlite3
 import datetime
 import os
 
-# FOR THIS BRANCH
-#TODO: Add ability to view joined tournaments
-#TODO: Add ability to switch between owned and joined
-
-
 #TODO: Add ability for user to see list of owned tournaments
 #TODO: Add tournament functionality
 #TODO: Polish frontend interface
@@ -41,7 +36,7 @@ WITHDRAW_CUTOFF_HOURS = 2   # Within this many hours of the start, players can't
 # Extra columns added to tournament queries: live player counts and when withdrawals close
 # WITHDRAW_CUTOFF_HOURS is a number we set ourselves, so putting it into the SQL is safe
 REGISTRATION_COLUMNS = f'''
-    datetime(start_time, '-{WITHDRAW_CUTOFF_HOURS} hours') AS withdraw_cutoff,
+    datetime(Tournament.start_time, '-{WITHDRAW_CUTOFF_HOURS} hours') AS withdraw_cutoff,
     (SELECT COUNT(*) FROM Participants p
         WHERE p.tournament_id = Tournament.tournament_id AND p.status = 'registered') AS registered_count,
     (SELECT COUNT(*) FROM Participants p
@@ -516,9 +511,9 @@ def my_registrations():
     return jsonify(results)
 
 
-@app.route('/api/get_joined_tournaments')
+@app.route('/api/get_joined_tournaments/<int:page>')
 @jwt_required()
-def get_joined(): # UNTESTED
+def get_joined(page): # UNTESTED
      # Get id of user
     current_user = int(get_jwt_identity())
 
@@ -526,13 +521,20 @@ def get_joined(): # UNTESTED
     connection = get_connection()
     cursor = connection.cursor()
 
-    cursor.execute('''SELECT Tournament.*, Participants.status FROM Participants INNER JOIN Tournament
-        ON Participants.user_id = ? AND Participants.tournament_id = Tournament.tournament_id
-    ''', (current_user,))
+    where, values = build_filters(request.args)
+    cursor.execute('''SELECT Tournament.*, Participants.status,
+    ''' + REGISTRATION_COLUMNS + '''
+    FROM Tournament INNER JOIN Participants
+    ON Participants.user_id = ? AND Participants.tournament_id = Tournament.tournament_id AND Participants.status <> 'withdrawn'
+    ''' + where + '''
+    ORDER BY tournament_id DESC
+    LIMIT ? OFFSET ?;
+    ''', [current_user] + values + [ENTRY_PER_PAGE, ENTRY_PER_PAGE * (page - 1)])
     results = get_results(cursor.fetchall())
     connection.close()
 
     # Convert to json string and send to requester
+    print(results)
     return jsonify(results), 200
     
 
