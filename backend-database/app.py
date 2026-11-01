@@ -8,13 +8,10 @@ import sqlite3
 import datetime
 import os
 
-#TODO: Add ability for user to see list of owned tournaments
 #TODO: Add tournament functionality
 #TODO: Polish frontend interface
 
 #TODO: DASHBOARD
-    # Lets users see tournaments they're in <--
-    # Lets users see tournaments they own <--
     # Subpage: Tournament-specific dashboard
         # Shows matches
         # Shows registered users and waitlist <--

@@ -34,6 +34,12 @@ function loadTournament() {
         authFetch('/api/get_id')
         .then(result => {
             details.appendChild(buildRegistrationArea(tournament, result.data.id, registrations[tournament.tournament_id], loadTournament))
+            if (tournament.host_user_id == result.data.id) {
+                document.getElementById('owner-buttons').hidden = false
+                document.getElementById('dashboard').onclick = function() {
+                    location.href = 'dashboard.html?id=' + tournament.tournament_id 
+                }
+            }
         })
     })
     .catch(error => {
@@ -52,3 +58,4 @@ window.onload = loadTournament
 document.getElementById('back-link').onclick = function() {
     history.back()
 }
+
