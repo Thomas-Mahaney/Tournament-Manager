@@ -8,16 +8,16 @@ import sqlite3
 import datetime
 import os
 
-#TODO: Add tournament functionality
+#TODO: Add tournament functionality <-- CURRENT
 #TODO: Polish frontend interface
 
 #TODO: DASHBOARD
     # Subpage: Tournament-specific dashboard
-        # Shows matches
-        # Shows registered users and waitlist <--
-        # Lets host edit tournament details <--
-        # Lets host change user positions
-        # Lets host declare match winner
+        # Shows matches <-- THIRD
+        # Shows registered users and waitlist <-- FIRST
+        # Lets host edit tournament details <-- SECOND
+        # Lets host change user positions <-- FIFTH
+        # Lets host declare match winner <-- FOURTH
 
 # Constant variables used for database functions
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # Folder this file is in, so the database is found no matter where the server is started from
