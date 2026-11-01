@@ -77,7 +77,7 @@ function buildRegistrationArea(tournament, user_id, mine, onChange) {
     }
 
     if (is_owner) {
-        addButton('Owned', null, "Unable to join tournaments you own")
+        addButton('Open Dashboard', () => { location.href = 'dashboard.html?id=' + tournament.tournament_id })
     } else if (status == 'registered' || status == 'waitlisted') {
         addLabel(status == 'registered' ? 'Registered ✓' : 'Waitlisted (#' + mine.position + ')')
         const cutoff = toDate(tournament.withdraw_cutoff).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
