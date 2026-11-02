@@ -14,6 +14,9 @@ function loadTournament() {
     })
     Promise.all([tournamentRequest, getMyRegistrations()])
     .then(([tournament, registrations]) => {
+        // Update page name
+        document.title = tournament.title
+
         // Clear old content, since this also runs again after registering or withdrawing
         details.replaceChildren()
         document.getElementById('tournament-title').innerText = tournament.title
