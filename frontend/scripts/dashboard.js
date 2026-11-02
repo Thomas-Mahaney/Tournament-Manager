@@ -23,7 +23,6 @@ function loadLists() {
         list_item.textContent = participant.username
 
         // Add to appropriate list
-        console.log(participant.status)
         if (participant.status === 'registered') {
             registered_list.appendChild(list_item)
         } else if (participant.status === 'waitlisted') {
