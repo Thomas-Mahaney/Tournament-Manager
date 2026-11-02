@@ -4,11 +4,15 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from contextlib import contextmanager
+from dotenv import load_dotenv
 import sqlite3
 import datetime
 import os
 
-#TODO: Add tournament functionality <-- CURRENT
+# Load environment variables
+load_dotenv()
+
+#TODO: Add tournament functionality
 #TODO: Polish frontend interface
 
 #TODO: DASHBOARD
@@ -21,7 +25,7 @@ import os
 # Constant variables used for database functions
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # Folder this file is in, so the database is found no matter where the server is started from
 DATABASE_NAME = os.path.join(BASE_DIR, 'test_database.db') # Name of the database the program will interact with
-ENTRY_PER_PAGE = 2.0 # How many database entries will appear on each page of the list
+ENTRY_PER_PAGE = 5.0 # How many database entries will appear on each page of the list
 #Tournament Rules
 SKILL_LEVELS = ['Beginner', 'Intermediate', 'Expert'] # Allowed skill levels, in the order dropdowns show them
 MIN_PLAYER_CAP = 2
@@ -48,15 +52,12 @@ WAITLIST_POSITION = '''
              OR (w.registration_time = p.registration_time AND w.rowid <= p.rowid)))
 '''
 
-
-
 # Initialize app
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = '1uBu3qG7XwkiUzX98V_a0pCYumvPRYD70Dq5OG9unAw'
+app.config['JWT_SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
 CORS(app, supports_credentials=True, allow_headers=["Authorization", "Content-Type"])
 jwt = JWTManager(app)
-
 
 #################################
 # FUNCTIONS
