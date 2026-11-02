@@ -37,3 +37,7 @@ window.onload = function() {
         loadLists()
     })
 }
+
+document.getElementById('back').onclick = function() {
+    history.back()
+}

@@ -13,11 +13,10 @@ import os
 
 #TODO: DASHBOARD
     # Subpage: Tournament-specific dashboard
-        # Shows matches <-- THIRD
-        # Shows registered users and waitlist <-- FIRST
-        # Lets host edit tournament details <-- SECOND
-        # Lets host change user positions <-- FIFTH
-        # Lets host declare match winner <-- FOURTH
+        # Shows matches <-- NEXT
+        # Lets host edit tournament details [Might scrap this cuz of time. Could cause issues when changing dates and player cap. We'll see.]
+        # Lets host change user positions
+        # Lets host declare match winner
 
 # Constant variables used for database functions
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # Folder this file is in, so the database is found no matter where the server is started from
