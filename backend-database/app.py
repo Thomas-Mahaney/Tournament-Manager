@@ -601,6 +601,7 @@ def get_dashboard(tournament_id):
         JOIN Users ON Participants.user_id = Users.user_id
         WHERE tournament_id = ?
         AND status <> 'withdrawn'
+        ORDER BY registration_time ASC
     ''', (tournament_id,))
     participants = get_results(cursor.fetchall())
 
