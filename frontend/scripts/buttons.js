@@ -1,19 +1,7 @@
-function isTokenValid(token) {
-  try {
-    const { exp } = JSON.parse(atob(token.split('.')[1]))
-    return Date.now() < exp * 1000
-  } catch (err) {
-    return false;
-  }
-}
-
 function displayButtons() {
-    // Check if user is logged in
-    let is_logged_in = isTokenValid(localStorage.getItem('accessToken'))
-
     // toggle button visibility
-    document.getElementById('not-logged').hidden = is_logged_in
-    document.getElementById('is-logged').hidden = !is_logged_in
+    document.getElementById('not-logged').hidden = isLoggedIn()
+    document.getElementById('is-logged').hidden = !isLoggedIn()
 }
 
 window.addEventListener('load', displayButtons())

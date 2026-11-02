@@ -597,7 +597,8 @@ def get_dashboard(tournament_id):
 
     # Fetch all participants
     cursor.execute(''' 
-        SELECT * FROM Participants
+        SELECT Participants.*, Users.username FROM Participants
+        JOIN Users ON Participants.user_id = Users.user_id
         WHERE tournament_id = ?
         AND status <> 'withdrawn'
     ''', (tournament_id,))
@@ -613,14 +614,14 @@ def get_dashboard(tournament_id):
     # Close connection
     connection.close()
 
+
     # Get all the info from the queries
-    results = {
+    return jsonify({
+        'success': True,
         'tournament': dict(tournament),
         'participants': participants,
-        'matches': matches
-    }
-
-    return jsonify({'success': True, 'data': results}), 200
+        'matches': matches,
+    }), 200
 
 
 ##############################
