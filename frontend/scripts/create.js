@@ -34,7 +34,7 @@ form.onsubmit = function(event) {
     authFetch('/api/create_tournament', { method: 'POST', body: new FormData(form) })
     .then(result => {
         if (result.ok) {
-            window.location.href = 'tournament.html?id=' + result.data.tournament_id
+            window.location.replace('tournament.html?id=' + result.data.tournament_id)
         }
         else if (result.status == 401) {
             errorMessage.innerText = 'Your login has expired. Please log in again'
