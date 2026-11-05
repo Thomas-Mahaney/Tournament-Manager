@@ -401,7 +401,6 @@ def create_tournament():
     # 201 means "created". The frontend uses the id to open the new tournament's page.
     return jsonify({'success': True, 'tournament_id': tournament_id}), 201
 
-
 ###################################
 # TOURNAMENT GETTERS
 ###################################
@@ -691,6 +690,31 @@ def get_dashboard(tournament_id):
         'matches': matches,
     }), 200
 
+# ONLY WORKS WHEN TOURNAMENT IS STARTED
+@app.route('/api/declare_winner/<int:user_id>')
+@jwt_required()
+def declare_winner(user_id):
+    # Check we can edit tournament
+    # Check start time is available
+    # Declare winner of match
+    # Move winner to an id of next match
+    pass
+
+# ONLY WORKS WHEN TOURNAMENT IS NOT STARTED
+@app.route('/api/swap_participants')
+@jwt_required()
+def swap_participants():
+    # Check we can edit tournament
+    # 
+    pass
+
+@app.route('/api/remove_participant/<int:user_id>')
+@jwt_required()
+def remove_participants(user_id):
+    # Check we can edit tournament
+    # Declare winner of match
+    # Move winner to an id of next match
+    pass
 
 ##############################
 if __name__ == '__main__':
