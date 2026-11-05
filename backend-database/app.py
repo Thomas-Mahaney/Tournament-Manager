@@ -227,7 +227,21 @@ def promote_from_waitlist(cursor, tournament):
     for user_id in promoted:
         cursor.execute("UPDATE Participants SET status = 'registered' WHERE tournament_id = ? AND user_id = ?",
                        (tournament['tournament_id'], user_id))
+        add_to_match(cursor, user_id, tournament['tournament_id'])
     return len(promoted)
+
+def add_to_match(cursor, user_id, tournament_id):
+    cursor.execute('''
+        UPDATE Matches
+        SET player_1_id = CASE WHEN player_1_id IS NULL THEN ? ELSE player_1_id END,
+            player_2_id = CASE WHEN player_1_id IS NOT NULL AND player_2_id IS NULL THEN ? ELSE player_2_id END
+        WHERE match_number = (
+            SELECT match_number FROM Matches 
+            WHERE tournament_id = ? AND accepts_registered = 1 AND (player_1_id IS NULL OR player_2_id IS NULL) 
+            ORDER BY match_number ASC 
+            LIMIT 1
+        )
+    ''', (user_id, user_id, tournament_id))
 
 ##########################
 # USER AUTHENTICATION APIS
@@ -498,17 +512,7 @@ def register(tournament_id):
 
         # Add to tournament match list if registered.
         if status == 'registered':
-            cursor.execute('''
-                UPDATE Matches
-                SET player_1_id = CASE WHEN player_1_id IS NULL THEN ? ELSE player_1_id END,
-                    player_2_id = CASE WHEN player_1_id IS NOT NULL AND player_2_id IS NULL THEN ? ELSE player_2_id END
-                WHERE match_number = (
-                    SELECT match_number FROM Matches 
-                    WHERE tournament_id = ? AND accepts_registered = 1 AND (player_1_id IS NULL OR player_2_id IS NULL) 
-                    ORDER BY match_number ASC 
-                    LIMIT 1
-                )
-            ''', (user_id, user_id, tournament_id))
+            add_to_match(cursor, user_id, tournament_id)
         # GET Matches of tournament where accepts_registered is true and at least 1 user slot is empty. Sort by match number ascending.
         # Add user to first match meeting criteria, in whichever slot is empty. 
 
@@ -535,7 +539,18 @@ def withdraw(tournament_id):
         # Keep the row as history instead of deleting it
         cursor.execute("UPDATE Participants SET status = 'withdrawn' WHERE tournament_id = ? AND user_id = ?",
                        (tournament_id, user_id))
+
+        # Remove user from any match they were in
+        cursor.execute('''
+            UPDATE Matches
+            SET player_1_id = CASE WHEN player_1_id = ? THEN NULL ELSE player_1_id END,
+                player_2_id = CASE WHEN player_2_id = ? THEN NULL ELSE player_2_id END
+            WHERE tournament_id = ?
+        ''', (user_id, user_id, tournament_id,))
+
+        # Promotes waitlisted users (and adds them to match if possible)
         promoted = promote_from_waitlist(cursor, tournament)
+
 
     return jsonify({'success': True, 'promoted': promoted})
 
