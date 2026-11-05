@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import sqlite3
 import datetime
 import os
+import math
 
 # Load environment variables
 load_dotenv()
@@ -228,8 +229,6 @@ def promote_from_waitlist(cursor, tournament):
                        (tournament['tournament_id'], user_id))
     return len(promoted)
 
-
-
 ##########################
 # USER AUTHENTICATION APIS
 ##########################
@@ -325,7 +324,10 @@ def get_id():
     user_id = get_jwt_identity()
     return {'id': user_id}
 
-# TOURNAMENT CREATION [EDIT?] [REMOVE?]
+###############################
+# TOURNAMENT CREATION
+###############################
+
 @app.route('/api/create_tournament', methods=['POST'])
 @jwt_required()
 def create_tournament():
@@ -337,6 +339,11 @@ def create_tournament():
     if error:
         return fail(error)
 
+    # Do math for match creation
+    rounds = math.ceil(math.log2(data['player_cap'])) # 5 -> 3
+    player_log = (2 ** rounds)
+    pullovers = math.ceil((player_log - data['player_cap']) / 2) # Calculate byes and check how many round 2 matches will pull these leftover players.
+
     # Insert the new tournament
     connection = get_connection()
     cursor = connection.cursor()
@@ -346,6 +353,34 @@ def create_tournament():
     ''', (host_id, data['title'], data['game'], data['description'], data['skill_level'],
           data['start_time'], data['deadline'], data['location'], data['player_cap']))
     tournament_id = cursor.lastrowid    # This is the id SQLite gave the new row
+
+    # Create matches
+    matches = []
+    current_round = rounds
+    until_next_round = 1
+    # build our match list in reverse (start at the final and work our way back)
+    for match_number in range(data['player_cap'] - 1, 0, -1):
+        # Check if the current match will accept registered players. If not, then a player can only be added to a match by winning another.
+        # Since player counts can sometimes be unequal, we need to sometimes start players at round 2.
+        # Accept all matches in round 1 or any match in round 2 that is within the number of pullovers.
+        # We treat the bool value as an int so it can be stored in the database.
+        accepts_registered = 0
+        if (rounds - current_round == 2 and until_next_round <= pullovers) or (rounds - current_round == 1):
+            accepts_registered = 1
+
+        matches.append((tournament_id, match_number, current_round, accepts_registered))
+        
+        # Check if we need to move to the next round
+        until_next_round -= 1
+        if until_next_round == 0:
+            # Update round count and reset match counter
+            current_round -= 1
+            until_next_round = 2 ** (rounds - current_round)
+
+    # Add matches to database.
+    cursor.executemany(("INSERT INTO Matches (tournament_id, match_number, round_number, accepts_registered) VALUES (?, ?, ?, ?)"), matches)
+
+    # Commit and close connection
     connection.commit()
     connection.close()
 
@@ -418,8 +453,9 @@ def get_tournament(tournament_id):
         return {'error': 'Tournament not found'}, 404
     return jsonify(dict(result))
 
-
-# REGISTRATION
+###################################
+# REGISTRATION APIS
+###################################
 
 # Signs the logged in user up. Confirmed if there's space, otherwise added to the waitlist.
 @app.route('/api/register/<int:tournament_id>', methods=['POST'])
@@ -459,6 +495,22 @@ def register(tournament_id):
                            (tournament_id, user_id, status, signed_up_at))
 
         position = waitlist_position(cursor, tournament_id, user_id) if status == 'waitlisted' else None
+
+        # Add to tournament match list if registered.
+        if status == 'registered':
+            cursor.execute('''
+                UPDATE Matches
+                SET player_1_id = CASE WHEN player_1_id IS NULL THEN ? ELSE player_1_id END,
+                    player_2_id = CASE WHEN player_1_id IS NOT NULL AND player_2_id IS NULL THEN ? ELSE player_2_id END
+                WHERE match_number = (
+                    SELECT match_number FROM Matches 
+                    WHERE tournament_id = ? AND accepts_registered = 1 AND (player_1_id IS NULL OR player_2_id IS NULL) 
+                    ORDER BY match_number ASC 
+                    LIMIT 1
+                )
+            ''', (user_id, user_id, tournament_id))
+        # GET Matches of tournament where accepts_registered is true and at least 1 user slot is empty. Sort by match number ascending.
+        # Add user to first match meeting criteria, in whichever slot is empty. 
 
     return jsonify({'success': True, 'status': status, 'position': position})
 
@@ -510,7 +562,7 @@ def my_registrations():
 
 @app.route('/api/get_joined_tournaments/<int:page>')
 @jwt_required()
-def get_joined(page): # UNTESTED
+def get_joined(page):
      # Get id of user
     current_user = int(get_jwt_identity())
 

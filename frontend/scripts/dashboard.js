@@ -34,6 +34,8 @@ function loadLists() {
 window.onload = function() {
     getDashboardData()
     .then(() => {
+        console.log(dashboard_data)
+        document.getElementById('tournament-title').textContent = dashboard_data.tournament.title
         loadLists()
     })
 }
