@@ -34,6 +34,14 @@ MAX_PLAYER_CAP = 256
 TIME_FORMAT = '%Y-%m-%d %H:%M:%S' # How times are stored in the database (local time)
 WITHDRAW_CUTOFF_HOURS = 2   # Within this many hours of the start, players can't withdraw and nobody gets promoted
 
+# Ways the tournament lists can be sorted. ORDER BY can't use ? placeholders, so the url only picks a key and these fixed strings are what go into the SQL.
+#   'start' puts tournaments that haven't started yet first, soonest first. Ones that already started come last, most recently started first. (Sorting by distance from the current time allows both)
+SORT_OPTIONS = {
+    'start': "start_time < datetime('now', 'localtime'), ABS(julianday(start_time) - julianday('now', 'localtime')), tournament_id",
+    'newest': 'tournament_id DESC',
+}
+DEFAULT_SORT = 'start'
+
 # Extra columns added to tournament queries: live player counts and when withdrawals close
 # WITHDRAW_CUTOFF_HOURS is a number we set ourselves, so putting it into the SQL is safe
 REGISTRATION_COLUMNS = f'''
@@ -99,6 +107,10 @@ def build_filters(args):
         return '', values
 
     return 'WHERE ' + ' AND '.join(conditions), values
+
+# Picks the ORDER BY for the lists from the "sort" value in the url. Unknown values use the default
+def get_order_by(args):
+    return SORT_OPTIONS.get(args.get('sort'), SORT_OPTIONS[DEFAULT_SORT])
 
 # Function for converting a database query into a list of dictionaries
 def get_results(query):
@@ -420,7 +432,7 @@ def get_tournaments(page):
         ''' + REGISTRATION_COLUMNS + '''
         FROM Tournament
         ''' + where + '''
-        ORDER BY tournament_id DESC
+        ORDER BY ''' + get_order_by(request.args) + '''
         LIMIT ? OFFSET ?;
     ''', values + [ENTRY_PER_PAGE, ENTRY_PER_PAGE * (page - 1)])
     
@@ -590,7 +602,7 @@ def get_joined(page):
     FROM Tournament INNER JOIN Participants
     ON Participants.user_id = ? AND Participants.tournament_id = Tournament.tournament_id AND Participants.status <> 'withdrawn'
     ''' + where + '''
-    ORDER BY tournament_id DESC
+    ORDER BY ''' + get_order_by(request.args) + '''
     LIMIT ? OFFSET ?;
     ''', [current_user] + values + [ENTRY_PER_PAGE, ENTRY_PER_PAGE * (page - 1)])
     results = get_results(cursor.fetchall())
@@ -621,7 +633,7 @@ def get_owned(page):
         FROM Tournament
         ''' + where + keyword + '''
         host_user_id = ? 
-        ORDER BY tournament_id DESC
+        ORDER BY ''' + get_order_by(request.args) + '''
         LIMIT ? OFFSET ?;
     ''', values + [current_user] + [ENTRY_PER_PAGE, ENTRY_PER_PAGE * (page - 1)])
     
