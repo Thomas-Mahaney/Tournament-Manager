@@ -3,7 +3,7 @@ const DEFAULT_PAGE = 1
 // Default sort, which the backend also uses when no sort is given
 const DEFAULT_SORT = 'start'
 // URL parameters used for filtering. These match the names of the inputs in the filter form.
-const FILTERS = ['search', 'game', 'skill_level', 'open']
+const FILTERS = ['search', 'game', 'skill_level', 'open', 'sort']
 
 // When page loads, we call the backend to get available tournaments and display them.
 function loadPageOfResults(api, page, replaceState, setDefault) {
