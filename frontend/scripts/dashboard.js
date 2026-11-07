@@ -321,3 +321,8 @@ remove.onclick = function() {
         enableRemovePlayer()
     }
 }
+
+// Opens the page for editing this tournament
+document.getElementById('edit').onclick = function() {
+    location.href = 'edit.html?id=' + new URLSearchParams(window.location.search).get('id')
+}
