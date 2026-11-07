@@ -242,14 +242,14 @@ def add_to_match(cursor, user_id, tournament_id):
                 AND player_2_id IS NULL 
                 AND accepts_registered = 2 THEN ?
                 ELSE player_2_id END
-        WHERE match_number = (
+        WHERE tournament_id = ? AND match_number = (
             SELECT match_number FROM Matches 
-            WHERE tournament_id = ? AND (accepts_registered = 2 AND (player_1_id IS NULL OR player_2_id IS NULL))
-            OR (accepts_registered = 1 AND player_1_id IS NULL)
+            WHERE tournament_id = ? AND ((accepts_registered = 2 AND (player_1_id IS NULL OR player_2_id IS NULL))
+            OR (accepts_registered = 1 AND player_1_id IS NULL))
             ORDER BY match_number ASC
             LIMIT 1
         )
-    ''', (user_id, user_id, tournament_id))
+    ''', (user_id, user_id, tournament_id, tournament_id))
 
 # Checks if the given user owns the given tournament.
 def is_owner(user_id, tournament_id):
