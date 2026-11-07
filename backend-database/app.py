@@ -434,16 +434,16 @@ def create_tournament():
         # Accept all matches in round 1 or any match in round 2 that is within the number of pullovers.
         # We treat the bool value as an int so it can be stored in the database.
         accepts_registered = 0
-        if (rounds - current_round == 2 and until_next_round <= pullovers) or (rounds - current_round == 1):
+        if (current_round == 2 and until_next_round <= pullovers) or (current_round == 1):
             accepts_registered = 1
 
         # Gets next match.
         parent_entry = math.floor((len(matches) + 1) / 2)
-        next_round = None
+        next_match = None
         if parent_entry != 0:
-            next_round = matches[parent_entry - 1][1]
+            next_match = matches[parent_entry - 1][1]
         
-        matches.append((tournament_id, match_number, current_round, accepts_registered, next_round))
+        matches.append((tournament_id, match_number, current_round, accepts_registered, next_match))
         
         # Check if we need to move to the next round
         until_next_round -= 1
@@ -453,7 +453,7 @@ def create_tournament():
             until_next_round = 2 ** (rounds - current_round)
 
     # Add matches to database.
-    cursor.executemany(("INSERT INTO Matches (tournament_id, match_number, round_number, accepts_registered, next_round) VALUES (?, ?, ?, ?, ?)"), matches)
+    cursor.executemany(("INSERT INTO Matches (tournament_id, match_number, round_number, accepts_registered, next_match) VALUES (?, ?, ?, ?, ?)"), matches)
 
     # Commit and close connection
     connection.commit()
@@ -746,29 +746,37 @@ def declare_winner(tournament_id, match_number, user_id):
     cursor.execute('''
         UPDATE Matches
             SET winner_id = CASE WHEN winner_id IS NULL THEN ? ELSE winner_id END
-        WHERE match_number = ?
-    ''', (user_id, match_number))
+        WHERE tournament_id = ? AND match_number = ?
+    ''', (user_id, tournament_id, match_number))
 
     # Add winner to next match
+
+    next_match_string = "(SELECT next_match FROM Matches WHERE tournament_id = ? AND match_number = ?)"
+
     cursor.execute('''
         UPDATE Matches
             SET player_1_id = CASE 
                     WHEN player_1_id IS NULL THEN ?
                     ELSE player_1_id END,
                 player_2_id = CASE
-                    WHEN player_1_id IS NOT NULL AND player_2_id IS NULL THEN ?
+                    WHEN player_1_id IS NOT NULL AND player_2_id IS NULL AND player_1_id <> ? THEN ?
                     ELSE player_2_id END
-        WHERE match_number = (
-            SELECT next_round FROM Matches
-            WHERE match_number = ?
-        )
-    ''', (user_id, user_id, match_number))
+        WHERE match_number = ''' + next_match_string + ''' AND tournament_id = ?
+    ''', (user_id, user_id, user_id, tournament_id, match_number, tournament_id))
 
-    # commit and close
+    # Commit changes
     connection.commit()
+
+    # Get matches to return then close connection
+    cursor.execute('''
+        SELECT * FROM Matches 
+        WHERE tournament_id = ? AND (match_number = ?
+        OR match_number = ''' + next_match_string + ''')
+    ''', (tournament_id, match_number, tournament_id, match_number))
+    results = get_results(cursor.fetchall())
     connection.close()
 
-    return {'success': True}
+    return {'success': True, 'data': results}
 
 # Next two APIs only work when the tournament hasn't started.
 

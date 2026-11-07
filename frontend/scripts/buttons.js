@@ -14,7 +14,7 @@ document.getElementById('logout').onclick = function() {
     .then(response => response.json())
     .then(data => {
         localStorage.removeItem('accessToken')
-        displayButtons()
+        window.location.reload()
     })
     .catch(error => console.error(error))
 }

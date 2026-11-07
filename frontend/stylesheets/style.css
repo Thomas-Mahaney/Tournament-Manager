@@ -58,3 +58,8 @@ body {
 button:disabled {
     cursor: not-allowed;
 }
+
+.clickAllow {
+    cursor: pointer;
+    color: blue;
+}
