@@ -856,15 +856,20 @@ def remove_participants(tournament_id, user_id):
     if not is_in_tournament(user_id, tournament_id):
         return {'success': False, 'msg': 'User is not in tournament.'}
 
+    # Open connection
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Check if tournament hasn't started
+    tournament = get_tournament_row(cursor, tournament_id)
+    if datetime.datetime.now() >= from_db_time(tournament['start_time']):
+        return {'success': False, 'msg': 'Tournament has already started.'}
+
     # Force withdraw
     withdraw_success = withdraw_user(tournament_id, user_id)
 
     if not withdraw_success:
         return {'success': False, 'msg': 'An error occurred during withdrawl.'}
-
-    # Open connection
-    connection = get_connection()
-    cursor = connection.cursor()
 
     # Get matches to return then close connection
     cursor.execute('''
