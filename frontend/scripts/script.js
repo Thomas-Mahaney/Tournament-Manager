@@ -1,7 +1,9 @@
 // Default page number
 const DEFAULT_PAGE = 1
+// Default sort, which the backend also uses when no sort is given
+const DEFAULT_SORT = 'start'
 // URL parameters used for filtering. These match the names of the inputs in the filter form.
-const FILTERS = ['search', 'game', 'skill_level', 'open']
+const FILTERS = ['search', 'game', 'skill_level', 'open', 'sort']
 
 // When page loads, we call the backend to get available tournaments and display them.
 function loadPageOfResults(api, page, replaceState, setDefault) {
@@ -148,6 +150,7 @@ function showFiltersInForm() {
     inputs.search.value = params.get('search') || ''
     inputs.game.value = params.get('game') || ''
     inputs.skill_level.value = params.get('skill_level') || ''
+    inputs.sort.value = params.get('sort') || DEFAULT_SORT
     inputs.open.checked = params.get('open') == 'true'
 }
 
@@ -194,6 +197,7 @@ document.getElementById('filter-form').onsubmit = function(event) {
         search: inputs.search.value.trim(),
         game: inputs.game.value,
         skill_level: inputs.skill_level.value,
+        sort: inputs.sort.value == DEFAULT_SORT ? '' : inputs.sort.value,   // Leave the default out of the url
         open: inputs.open.checked ? 'true' : '',
         page: DEFAULT_PAGE,
     })
@@ -202,7 +206,7 @@ document.getElementById('filter-form').onsubmit = function(event) {
 
 // Clear all filters and show every tournament again
 document.getElementById('filter-clear').onclick = function() {
-    updateURL({ search: '', game: '', skill_level: '', open: '', page: DEFAULT_PAGE})
+    updateURL({ search: '', game: '', skill_level: '', sort: '', open: '', page: DEFAULT_PAGE})
     showFiltersInForm()
     loadPageOfResults(PAGE_API, DEFAULT_PAGE, true)
 }
