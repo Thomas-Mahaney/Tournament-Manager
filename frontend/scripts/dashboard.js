@@ -88,6 +88,7 @@ function getPlayers(match_num) {
     return { player_1, player_2 }
 }
 
+// Updates match display
 function updateMatch(match) {
     const { player_1, player_2 } = getPlayers(match.match_number)
 
@@ -106,6 +107,7 @@ function updateMatch(match) {
     }
 }
 
+// Updates match data and refreshes match visuals
 function updateMatchData(data) {
     for (const match of data) {
         index = dashboard_data.matches.findIndex(element => element.match_number == match.match_number)
@@ -114,11 +116,13 @@ function updateMatchData(data) {
     }
 }
 
+// Update participant data and refreshes lists
 function updateParticipants(data) {
     dashboard_data.participants = data
     loadLists()
 }
 
+// Resets all participant selections in bracket
 function deselectParticipants() {
     for (const match of dashboard_data.matches) {
         const { player_1, player_2 } = getPlayers(match.match_number)
@@ -156,6 +160,7 @@ function enableDeclareWinner() {
                     + '/' + eval('match.player_' + id + '_id')
                 )
                 .then(result => {
+                    // If successful, disable selection and update dashboard
                     if (!result.ok) { return }
                     deselectParticipants()
                     updateMatchData(result.data.data)
@@ -197,6 +202,7 @@ function enableSwapPlayer() {
                         + '/' + swap_user.id
                     )
                     .then(result => {
+                        // If successful, disable selection and update dashboard
                         if (!result.ok) { return }
                         deselectParticipants()
                         updateMatchData(result.data.data)
@@ -230,6 +236,7 @@ function enableRemovePlayer() {
 
             text.classList.add('clickAllow')
             text.onclick = function() {
+                // Call api if confirmed
                 if (!confirm('Remove ' + text.textContent + '?')) { return; }
                 authFetch(
                     '/api/remove_participant/' + dashboard_data.tournament.tournament_id 
@@ -237,6 +244,8 @@ function enableRemovePlayer() {
                 )
                 .then(result => {
                     if (!result.ok) { return }
+
+                    // If successful, disable selection and update dashboard
                     deselectParticipants()
                     updateMatchData(result.data.matches)
                     updateParticipants(result.data.participants)
@@ -251,16 +260,19 @@ function enableRemovePlayer() {
 
 window.onload = function() {
     try {
+        // Gets data for tournament
         getDashboardData()
         .then(() => {
             let start = new Date(dashboard_data.tournament.start_time).getTime()
             let current = new Date().getTime()
             let started = (start - current) <= 0
             
+            // Check if tournament is started and toggle appropriate buttons
             winner.disabled = !started
             swap.disabled = started
             remove.disabled = started
 
+            // Add hover text for disabled buttons
             if (!started) {
                 winner.title = "Only available after tournament has begun."
             } else {
@@ -269,9 +281,11 @@ window.onload = function() {
                 remove.title = highlight
             }
 
-
+            // Update title and time
             document.getElementById('tournament-title').textContent = dashboard_data.tournament.title
             document.getElementById('start-time').textContent += formatValue('start_time', dashboard_data.tournament.start_time)
+            
+            // Fill lists and bracket
             loadLists()
             createBrackets()
         })
@@ -307,12 +321,3 @@ remove.onclick = function() {
         enableRemovePlayer()
     }
 }
-
-// Get Buttons working
-    // Declare winner
-    // Swap participants
-    // Remove participants
-
-    // Add time checks
-
-// Change how matches are built
