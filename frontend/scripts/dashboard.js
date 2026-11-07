@@ -17,6 +17,12 @@ function getDashboardData() {
     const params = new URLSearchParams(window.location.search)
     const id = params.get('id')
 
+    if (id == null) {
+        document.getElementById('disallowed').hidden = false
+        document.getElementById('allowed').hidden = true
+        return null
+    }
+
     // fetch all required data for the dashboard. If not owned the page will error.
     return authFetch('/api/get_dashboard_data/' + id)
     .then(result => {
@@ -238,30 +244,34 @@ function enableRemovePlayer() {
 }
 
 window.onload = function() {
-    getDashboardData()
-    .then(() => {
-        let start = new Date(dashboard_data.tournament.start_time).getTime()
-        let current = new Date().getTime()
-        let started = (start - current) <= 0
-        
-        winner.disabled = !started
-        swap.disabled = started
-        remove.disabled = started
+    try {
+        getDashboardData()
+        .then(() => {
+            let start = new Date(dashboard_data.tournament.start_time).getTime()
+            let current = new Date().getTime()
+            let started = (start - current) <= 0
+            
+            winner.disabled = !started
+            swap.disabled = started
+            remove.disabled = started
 
-        if (!started) {
-            winner.title = "Only available after tournament has begun."
-        } else {
-            let highlight = "Only available before the tournament has begun."
-            swap.title = highlight
-            remove.title = highlight
-        }
+            if (!started) {
+                winner.title = "Only available after tournament has begun."
+            } else {
+                let highlight = "Only available before the tournament has begun."
+                swap.title = highlight
+                remove.title = highlight
+            }
 
 
-        document.getElementById('tournament-title').textContent = dashboard_data.tournament.title
-        document.getElementById('start-time').textContent += formatValue('start_time', dashboard_data.tournament.start_time)
-        loadLists()
-        createBrackets()
-    })
+            document.getElementById('tournament-title').textContent = dashboard_data.tournament.title
+            document.getElementById('start-time').textContent += formatValue('start_time', dashboard_data.tournament.start_time)
+            loadLists()
+            createBrackets()
+        })
+    } catch(error) {
+        console.error(error)
+    }
 }
 
 document.getElementById('back').onclick = function() {

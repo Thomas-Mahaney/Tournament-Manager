@@ -225,11 +225,16 @@ def add_to_match(cursor, user_id, tournament_id):
     cursor.execute('''
         UPDATE Matches
         SET player_1_id = CASE WHEN player_1_id IS NULL THEN ? ELSE player_1_id END,
-            player_2_id = CASE WHEN player_1_id IS NOT NULL AND player_2_id IS NULL THEN ? ELSE player_2_id END
+            player_2_id = CASE 
+                WHEN player_1_id IS NOT NULL 
+                AND player_2_id IS NULL 
+                AND accepts_registered = 2 THEN ?
+                ELSE player_2_id END
         WHERE match_number = (
             SELECT match_number FROM Matches 
-            WHERE tournament_id = ? AND accepts_registered = 1 AND (player_1_id IS NULL OR player_2_id IS NULL) 
-            ORDER BY match_number ASC 
+            WHERE tournament_id = ? AND (accepts_registered = 2 AND (player_1_id IS NULL OR player_2_id IS NULL))
+            OR (accepts_registered = 1 AND player_1_id IS NULL)
+            ORDER BY match_number ASC
             LIMIT 1
         )
     ''', (user_id, user_id, tournament_id))
@@ -409,9 +414,10 @@ def create_tournament():
         return fail(error)
 
     # Do math for match creation
-    rounds = math.ceil(math.log2(data['player_cap'])) # 5 -> 3
-    player_log = (2 ** rounds)
+    rounds = math.ceil(math.log2(data['player_cap'])) # number of rounds in tournament
+    player_log = (2 ** rounds) # Get next largest power of 2. Used for bye calculation
     pullovers = math.ceil((player_log - data['player_cap']) / 2) # Calculate byes and check how many round 2 matches will pull these leftover players.
+    match_count = data['player_cap'] - 1
 
     # Insert the new tournament
     connection = get_connection()
@@ -423,34 +429,41 @@ def create_tournament():
           data['start_time'], data['deadline'], data['location'], data['player_cap']))
     tournament_id = cursor.lastrowid    # This is the id SQLite gave the new row
 
-    # Create matches
+    # Create match array to store for later use
     matches = []
-    current_round = rounds
-    until_next_round = 1
-    # build our match list in reverse (start at the final and work our way back)
-    for match_number in range(data['player_cap'] - 1, 0, -1):
-        # Check if the current match will accept registered players. If not, then a player can only be added to a match by winning another.
-        # Since player counts can sometimes be unequal, we need to sometimes start players at round 2.
-        # Accept all matches in round 1 or any match in round 2 that is within the number of pullovers.
-        # We treat the bool value as an int so it can be stored in the database.
-        accepts_registered = 0
-        if (current_round == 2 and until_next_round <= pullovers) or (current_round == 1):
-            accepts_registered = 1
 
-        # Gets next match.
-        parent_entry = math.floor((len(matches) + 1) / 2)
-        next_match = None
-        if parent_entry != 0:
-            next_match = matches[parent_entry - 1][1]
+    # build our match list in reverse (start at the final and work our way back)
+    for iteration in range(rounds):
+        next_range = 2 ** iteration # How many matches will be in the next iteration
+        round_max = match_count - (next_range - 1) # Highest match in the current round. Used to calculate current match.
+        current_round = rounds - iteration # The current round.
         
-        matches.append((tournament_id, match_number, current_round, accepts_registered, next_match))
-        
-        # Check if we need to move to the next round
-        until_next_round -= 1
-        if until_next_round == 0:
-            # Update round count and reset match counter
-            current_round -= 1
-            until_next_round = 2 ** (rounds - current_round)
+        for until_next_round in range(next_range, 0, -1):
+            current_match = round_max - (until_next_round - 1)
+
+            # Skip if match is less than 1 [Usually for byes]
+            if current_match < 1:
+                continue
+
+            # Check if the current match will accept registered players. If not, then a player can only be added to a match by winning another.
+            # Since player counts can sometimes be unequal, we need to sometimes start players at round 2.
+            # Accept all matches in round 1 or any match in round 2 that is within the number of pullovers.
+            # The given number equals the amount of registered users the match will accept.
+            accepts_registered = 0
+            if (current_round == 2 and until_next_round <= pullovers) or (current_round == 1):
+                if current_round == 2 and until_next_round == pullovers and (data['player_cap'] % 2 == 1):
+                    accepts_registered = 1
+                else:
+                    accepts_registered = 2
+
+            # Gets next match.
+            parent_entry = math.floor((len(matches) + 1) / 2)
+            next_match = None
+            if parent_entry != 0:
+                next_match = matches[parent_entry - 1][1]
+
+            # Build match tuple.
+            matches.append((tournament_id, current_match, current_round, accepts_registered, next_match))
 
     # Add matches to database.
     cursor.executemany(("INSERT INTO Matches (tournament_id, match_number, round_number, accepts_registered, next_match) VALUES (?, ?, ?, ?, ?)"), matches)
@@ -821,7 +834,7 @@ def swap_participants(tournament_id, user_id_1, user_id_2):
                     WHEN player_2_id = ? THEN ?
                     WHEN player_2_id = ? THEN ?
                     ELSE player_2_id END
-        WHERE accepts_registered = 1
+        WHERE accepts_registered > 0
     ''', 
     (
         user_id_1, user_id_2,
@@ -836,7 +849,7 @@ def swap_participants(tournament_id, user_id_1, user_id_2):
     # Get matches to return then close connection
     cursor.execute('''
         SELECT * FROM Matches 
-        WHERE tournament_id = ? AND accepts_registered = 1
+        WHERE tournament_id = ? AND accepts_registered > 0
         AND ((player_1_id = ? OR player_2_id = ?) OR (player_1_id = ? OR player_2_id = ?))
     ''', (tournament_id, user_id_1, user_id_1, user_id_2, user_id_2))
     results = get_results(cursor.fetchall())
@@ -874,7 +887,7 @@ def remove_participants(tournament_id, user_id):
     # Get matches to return then close connection
     cursor.execute('''
         SELECT * FROM Matches 
-        WHERE tournament_id = ? AND accepts_registered = 1
+        WHERE tournament_id = ? AND accepts_registered > 0
     ''', (tournament_id,))
     results = get_results(cursor.fetchall())
     connection.close()
