@@ -7,8 +7,6 @@ const winner = document.getElementById('winner')
 const swap = document.getElementById('swap')
 const remove = document.getElementById('remove')
 
-var userDictionary = {}
-
 var selection_enabled = false
 
 // Fetch data from backend needed for dashboard and store it
@@ -27,12 +25,7 @@ function getDashboardData() {
     return authFetch('/api/get_dashboard_data/' + id)
     .then(result => {
         if (result.ok) {
-            dashboard_data = result.data
-
-            // store participants in a user table to more easily handle users
-            for (const participant of dashboard_data.participants) {
-                userDictionary[participant.user_id] = {'status': participant.status, 'username': participant.username}
-            }
+            dashboard_data = result.data            
         }
 
         // Shows the error message or page depending on if fetch was successful.
@@ -45,6 +38,10 @@ function getDashboardData() {
 
 // Creates registered list and waitlist
 function loadLists() {
+    // Clear lists
+    registered_list.replaceChildren()
+    waitlist_list.replaceChildren()
+
     for (const user of dashboard_data.participants) {
         // Create list item
         const list_item = document.createElement('li')
@@ -94,8 +91,11 @@ function getPlayers(match_num) {
 function updateMatch(match) {
     const { player_1, player_2 } = getPlayers(match.match_number)
 
-    player_1.textContent = userDictionary[match.player_1_id] ? userDictionary[match.player_1_id]['username'] : 'Empty'
-    player_2.textContent = userDictionary[match.player_2_id] ? userDictionary[match.player_2_id]['username'] : 'Empty'
+    const user1 = dashboard_data.participants.find(user => user.user_id == match.player_1_id)
+    const user2 = dashboard_data.participants.find(user => user.user_id == match.player_2_id)
+
+    player_1.textContent = user1 ? user1['username'] : 'Empty'
+    player_2.textContent = user2 ? user2['username'] : 'Empty'
 
     if (match.winner_id) {
         if (match.winner_id == match.player_1_id) {
@@ -112,6 +112,11 @@ function updateMatchData(data) {
         dashboard_data.matches[index] = match
         updateMatch(match)
     }
+}
+
+function updateParticipants(data) {
+    dashboard_data.participants = data
+    loadLists()
 }
 
 function deselectParticipants() {
@@ -233,7 +238,8 @@ function enableRemovePlayer() {
                 .then(result => {
                     if (!result.ok) { return }
                     deselectParticipants()
-                    updateMatchData(result.data.data)
+                    updateMatchData(result.data.matches)
+                    updateParticipants(result.data.participants)
                 })
             }
         }
@@ -275,7 +281,7 @@ window.onload = function() {
 }
 
 document.getElementById('back').onclick = function() {
-    history.back()
+    location.href = sessionStorage.getItem('last_page') || '/'
 }
 
 winner.onclick = function() {

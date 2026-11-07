@@ -3,6 +3,8 @@ PAGE_API = 'get_owned_tournaments'
 owned = document.getElementById('owned-button')
 joined = document.getElementById('joined-button')
 
+sessionStorage.setItem("last_page", "my-tournaments.html")
+
 owned.onclick = function() {
     PAGE_API = 'get_owned_tournaments'
     owned.disabled = true
