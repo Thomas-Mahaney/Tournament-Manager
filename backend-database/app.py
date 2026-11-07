@@ -847,7 +847,24 @@ def remove_participants(tournament_id, user_id):
         return {'success': False, 'msg': 'User is not in tournament.'}
 
     # Force withdraw
-    return withdraw_user(tournament_id, user_id)
+    withdraw_success = withdraw_user(tournament_id, user_id)
+
+    if not withdraw_success:
+        return {'success': False, 'msg': 'An error occurred during withdrawl.'}
+
+    # Open connection
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Get matches to return then close connection
+    cursor.execute('''
+        SELECT * FROM Matches 
+        WHERE tournament_id = ? AND accepts_registered = 1
+    ''', (tournament_id,))
+    results = get_results(cursor.fetchall())
+    connection.close()
+    
+    return {'success': True, 'data': results}
 
 ##############################
 if __name__ == '__main__':

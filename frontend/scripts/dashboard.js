@@ -202,6 +202,41 @@ function enableSwapPlayer() {
     }
 }
 
+function enableRemovePlayer() {
+    selection_enabled = true
+
+    for (const match of dashboard_data.matches) {
+        // Skips matches with winners and non-starting matches
+        if (match.winner_id) { continue; }
+        if (!match.accepts_registered) { continue; }
+
+        const { player_1, player_2 } = getPlayers(match.match_number)
+
+        // local function for button update and functionality
+        function updatePlayer(id) {
+            let text = eval('player_' + id)
+            let player_id = eval('match.player_' + id + '_id')
+
+            text.classList.add('clickAllow')
+            text.onclick = function() {
+                if (!confirm('Remove ' + text.textContent + '?')) { return; }
+                authFetch(
+                    '/api/remove_participant/' + dashboard_data.tournament.tournament_id 
+                    + '/' + player_id
+                )
+                .then(result => {
+                    if (!result.ok) { return }
+                    deselectParticipants()
+                    updateMatchData(result.data.data)
+                })
+            }
+        }
+
+        if (match.player_1_id) { updatePlayer(1) }
+        if (match.player_2_id) { updatePlayer(2) }
+    }
+}
+
 window.onload = function() {
     getDashboardData()
     .then(() => {
@@ -253,7 +288,7 @@ remove.onclick = function() {
     if (selection_enabled) {
         deselectParticipants()
     } else {
-        enableDeclareWinner()
+        enableRemovePlayer()
     }
 }
 
