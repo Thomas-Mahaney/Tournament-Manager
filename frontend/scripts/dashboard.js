@@ -4,12 +4,14 @@ const match_div = document.getElementById('tournament-matches')
 const registered_list = document.getElementById('registered')
 const waitlist_list = document.getElementById('waitlist')
 
-userDictionary = {}
+var userDictionary = {}
 
 function getDashboardData() {
+    // Get the tourney id from the url
     const params = new URLSearchParams(window.location.search)
     const id = params.get('id')
 
+    // fetch all required data for the dashboard. If not owned the page will error.
     return authFetch('/api/get_dashboard_data/' + id)
     .then(result => {
         if (result.ok) {
@@ -20,6 +22,11 @@ function getDashboardData() {
                 userDictionary[participant.user_id] = {'status': participant.status, 'username': participant.username}
             }
         }
+
+        // Shows the error message or page depending on if fetch was successful.
+        // Doesn't matter if user makes the allowed div visible as it will not load properly and won't function anyway.
+        document.getElementById('disallowed').hidden = result.ok
+        document.getElementById('allowed').hidden = !result.ok
     })
     .catch(error => console.error(error))
 }
@@ -45,7 +52,7 @@ function createBrackets() {
         const new_bracket = document.createElement('div')
         new_bracket.id = 'match_' + match.match_number
 
-        const match_id = document.createElement('p')
+        const match_id = document.createElement('h3')
         match_id.textContent = 'Match: ' + match.match_number + ', Round: ' + match.round_number
 
         const player_1 = document.createElement('p')
@@ -70,6 +77,12 @@ window.onload = function() {
     getDashboardData()
     .then(() => {
         console.log(dashboard_data)
+
+        // Temp
+        let start = new Date(dashboard_data.tournament.start_time).getTime()
+        let current = new Date().getTime()
+        console.log(current - start)
+
         document.getElementById('tournament-title').textContent = dashboard_data.tournament.title
         loadLists()
         createBrackets()

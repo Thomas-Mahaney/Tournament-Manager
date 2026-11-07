@@ -11,26 +11,31 @@
     </head>
 
     <body>
-        <div id="user-buttons">
-            <button id="back">&larr; Back to tournaments</button>
-            <button id="edit">Edit Tournament</button>
-            <!-- Delete Tournament -->
+        <div id="disallowed" hidden>
+            <h1>Unable to load tournament.</h1>
+            <h2>This tournament may not exist or you do not have permission to view it.</h2>
         </div>
-        <h1 id="tournament-title">Loading...</h1>
-        <div id="tournament-matches"></div>
-        <div id="action-buttons">
-            <button>Declare Round Winner</button>
-            <button>Swap Participants</button>
-            <button>Remove Participant</button>
-        </div>
-        <div id="user-lists">
-            <div>
-                <h2>Registered</h2>
-                <ul id="registered"></ul>
+        <div id="allowed">
+            <div id="user-buttons">
+                <button id="back">&larr; Back</button>
+                <button id="edit">Edit Tournament</button>
             </div>
-            <div>
-                <h2>Waitlist</h2>
-                <ul id="waitlist"></ul>
+            <h1 id="tournament-title">Loading...</h1>
+            <div id="tournament-matches"></div>
+            <div id="action-buttons">
+                <button>Declare Round Winner</button>
+                <button>Swap Participants</button>
+                <button>Remove Participant</button>
+            </div>
+            <div id="user-lists">
+                <div>
+                    <h2>Registered</h2>
+                    <ul id="registered"></ul>
+                </div>
+                <div>
+                    <h2>Waitlist</h2>
+                    <ul id="waitlist"></ul>
+                </div>
             </div>
         </div>
     </body>

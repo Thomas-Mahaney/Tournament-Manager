@@ -13,16 +13,6 @@ import math
 # Load environment variables
 load_dotenv()
 
-#TODO: Add tournament functionality
-#TODO: Polish frontend interface
-
-#TODO: DASHBOARD
-    # Subpage: Tournament-specific dashboard
-        # Shows matches <-- NEXT
-        # Lets host edit tournament details [Might scrap this cuz of time. Could cause issues when changing dates and player cap. We'll see.]
-        # Lets host change user positions
-        # Lets host declare match winner
-
 # Constant variables used for database functions
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # Folder this file is in, so the database is found no matter where the server is started from
 DATABASE_NAME = os.path.join(BASE_DIR, 'test_database.db') # Name of the database the program will interact with
@@ -162,7 +152,6 @@ def validate_tournament_form(form):
 
     return data, None
 
-
 # Opens a connection for changes that have to happen together (count players, then save).
 # BEGIN IMMEDIATE locks the database for writing straight away, so two people grabbing the last
 # spot at the same time are handled one after the other. Commits at the end, undoes everything on an error.
@@ -227,9 +216,11 @@ def promote_from_waitlist(cursor, tournament):
     for user_id in promoted:
         cursor.execute("UPDATE Participants SET status = 'registered' WHERE tournament_id = ? AND user_id = ?",
                        (tournament['tournament_id'], user_id))
+        # Add user to a match since they're now registered
         add_to_match(cursor, user_id, tournament['tournament_id'])
     return len(promoted)
 
+# Function that adds a user to the first available match entry in a tournament
 def add_to_match(cursor, user_id, tournament_id):
     cursor.execute('''
         UPDATE Matches
@@ -242,6 +233,70 @@ def add_to_match(cursor, user_id, tournament_id):
             LIMIT 1
         )
     ''', (user_id, user_id, tournament_id))
+
+# Checks if the given user owns the given tournament.
+def is_owner(user_id, tournament_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT host_user_id FROM Tournament WHERE tournament_id = ? AND host_user_id = ?",
+                   (tournament_id, user_id))
+    result = cursor.fetchone()
+    connection.close()
+
+    if result:
+        return True
+    return False
+
+# Checks if user is registered for tournament
+def is_in_tournament(user_id, tournament_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+    
+    cursor.execute('''
+        SELECT user_id FROM Participants
+        WHERE tournament_id = ? 
+        AND user_id = ? 
+        AND status <> 'withdrawn'
+    ''', (tournament_id, user_id))
+    result = cursor.fetchone()
+    connection.close()
+    
+    if result:
+        return True
+    return False
+
+# Withdraws user from tournament.
+# Separated from API so it can be used by withdraw and remove_particpant APIs
+def withdraw_user(tournament_id, user_id):
+    with write_transaction() as cursor:
+        tournament = get_tournament_row(cursor, tournament_id)
+        if not tournament:
+            return fail('Tournament not found.', 404)
+        if datetime.datetime.now() >= withdraw_cutoff(tournament):
+            return fail(f'Withdrawals close {WITHDRAW_CUTOFF_HOURS} hours before the tournament starts.')
+
+        cursor.execute('SELECT status FROM Participants WHERE tournament_id = ? AND user_id = ?', (tournament_id, user_id))
+        existing = cursor.fetchone()
+        if not existing or existing['status'] == 'withdrawn':
+            return fail('You are not signed up for this tournament.', 409)
+
+        # Keep the row as history instead of deleting it
+        cursor.execute("UPDATE Participants SET status = 'withdrawn' WHERE tournament_id = ? AND user_id = ?",
+                       (tournament_id, user_id))
+
+        # Remove user from any match they were in
+        cursor.execute('''
+            UPDATE Matches
+            SET player_1_id = CASE WHEN player_1_id = ? THEN NULL ELSE player_1_id END,
+                player_2_id = CASE WHEN player_2_id = ? THEN NULL ELSE player_2_id END
+            WHERE tournament_id = ?
+        ''', (user_id, user_id, tournament_id,))
+
+        # Promotes waitlisted users (and adds them to match if possible)
+        promoted = promote_from_waitlist(cursor, tournament)
+
+    return jsonify({'success': True, 'promoted': promoted})
 
 ##########################
 # USER AUTHENTICATION APIS
@@ -382,7 +437,13 @@ def create_tournament():
         if (rounds - current_round == 2 and until_next_round <= pullovers) or (rounds - current_round == 1):
             accepts_registered = 1
 
-        matches.append((tournament_id, match_number, current_round, accepts_registered))
+        # Gets next match.
+        parent_entry = math.floor((len(matches) + 1) / 2)
+        next_round = None
+        if parent_entry != 0:
+            next_round = matches[parent_entry - 1][1]
+        
+        matches.append((tournament_id, match_number, current_round, accepts_registered, next_round))
         
         # Check if we need to move to the next round
         until_next_round -= 1
@@ -392,7 +453,7 @@ def create_tournament():
             until_next_round = 2 ** (rounds - current_round)
 
     # Add matches to database.
-    cursor.executemany(("INSERT INTO Matches (tournament_id, match_number, round_number, accepts_registered) VALUES (?, ?, ?, ?)"), matches)
+    cursor.executemany(("INSERT INTO Matches (tournament_id, match_number, round_number, accepts_registered, next_round) VALUES (?, ?, ?, ?, ?)"), matches)
 
     # Commit and close connection
     connection.commit()
@@ -523,35 +584,7 @@ def register(tournament_id):
 def withdraw(tournament_id):
     user_id = int(get_jwt_identity())
 
-    with write_transaction() as cursor:
-        tournament = get_tournament_row(cursor, tournament_id)
-        if not tournament:
-            return fail('Tournament not found.', 404)
-        if datetime.datetime.now() >= withdraw_cutoff(tournament):
-            return fail(f'Withdrawals close {WITHDRAW_CUTOFF_HOURS} hours before the tournament starts.')
-
-        cursor.execute('SELECT status FROM Participants WHERE tournament_id = ? AND user_id = ?', (tournament_id, user_id))
-        existing = cursor.fetchone()
-        if not existing or existing['status'] == 'withdrawn':
-            return fail('You are not signed up for this tournament.', 409)
-
-        # Keep the row as history instead of deleting it
-        cursor.execute("UPDATE Participants SET status = 'withdrawn' WHERE tournament_id = ? AND user_id = ?",
-                       (tournament_id, user_id))
-
-        # Remove user from any match they were in
-        cursor.execute('''
-            UPDATE Matches
-            SET player_1_id = CASE WHEN player_1_id = ? THEN NULL ELSE player_1_id END,
-                player_2_id = CASE WHEN player_2_id = ? THEN NULL ELSE player_2_id END
-            WHERE tournament_id = ?
-        ''', (user_id, user_id, tournament_id,))
-
-        # Promotes waitlisted users (and adds them to match if possible)
-        promoted = promote_from_waitlist(cursor, tournament)
-
-
-    return jsonify({'success': True, 'promoted': promoted})
+    return withdraw_user(tournament_id, user_id)
 
 # The logged in user's status in every tournament they're signed up for (not withdrawn),
 # with their waitlist position. The list and viewer pages use this to pick which buttons to show.
@@ -681,7 +714,6 @@ def get_dashboard(tournament_id):
     # Close connection
     connection.close()
 
-
     # Get all the info from the queries
     return jsonify({
         'success': True,
@@ -690,31 +722,115 @@ def get_dashboard(tournament_id):
         'matches': matches,
     }), 200
 
-# ONLY WORKS WHEN TOURNAMENT IS STARTED
-@app.route('/api/declare_winner/<int:user_id>')
+# Allows host to declare the winner of a tournament match.
+# Only works when the tournament has started.
+@app.route('/api/declare_winner/<int:tournament_id>/<int:match_number>/<int:user_id>')
 @jwt_required()
-def declare_winner(user_id):
-    # Check we can edit tournament
-    # Check start time is available
-    # Declare winner of match
-    # Move winner to an id of next match
-    pass
+def declare_winner(tournament_id, match_number, user_id):
+    # Check for ownership
+    if not is_owner(int(get_jwt_identity()), tournament_id):
+        return {'success': False, 'msg': 'You do not own this tournament.'}
+    
+    # Check for participant
+    if not is_in_tournament(user_id, tournament_id):
+        return {'success': False, 'msg': 'User is not in tournament.'}
 
-# ONLY WORKS WHEN TOURNAMENT IS NOT STARTED
-@app.route('/api/swap_participants')
-@jwt_required()
-def swap_participants():
-    # Check we can edit tournament
-    # 
-    pass
+    # Create connection
+    connection = get_connection()
+    cursor = connection.cursor()
 
-@app.route('/api/remove_participant/<int:user_id>')
+    # Start transaction
+    cursor.execute('BEGIN TRANSACTION')
+
+    # Declare winner for match
+    cursor.execute('''
+        UPDATE Matches
+            SET winner_id = CASE WHEN winner_id IS NULL THEN ? ELSE winner_id END
+        WHERE match_number = ?
+    ''', (user_id, match_number))
+
+    # Add winner to next match
+    cursor.execute('''
+        UPDATE Matches
+            SET player_1_id = CASE 
+                    WHEN player_1_id IS NULL THEN ?
+                    ELSE player_1_id END,
+                player_2_id = CASE
+                    WHEN player_1_id IS NOT NULL AND player_2_id IS NULL THEN ?
+                    ELSE player_2_id END
+        WHERE match_number = (
+            SELECT next_round FROM Matches
+            WHERE match_number = ?
+        )
+    ''', (user_id, user_id, match_number))
+
+    # commit and close
+    connection.commit()
+    connection.close()
+
+    return {'success': True}
+
+# Next two APIs only work when the tournament hasn't started.
+
+# Allows host to swap the placement of two participants in the available start matches.
+@app.route('/api/swap_participants/<int:tournament_id>/<int:user_id_1>/<int:user_id_2>')
 @jwt_required()
-def remove_participants(user_id):
-    # Check we can edit tournament
-    # Declare winner of match
-    # Move winner to an id of next match
-    pass
+def swap_participants(tournament_id, user_id_1, user_id_2):
+    # Check for ownership
+    if not is_owner(int(get_jwt_identity()), tournament_id):
+        return {'success': False, 'msg': 'You do not own this tournament.'}
+    
+    # Check for participants
+    if not (is_in_tournament(user_id_1, tournament_id) and is_in_tournament(user_id_2, tournament_id)):
+        return {'success': False, 'msg': 'User is not in tournament.'}
+
+    # Get matches
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Swaps users. Bit convoluted but whatever.
+    # Checks if id is equal to user 1, then swaps to user 2 and vice versa.
+    # Keeps the id the same if neither condition is met
+    # Performs this action for both player_1_id and player_2_id
+    # Only performs this action on starting rounds [rounds that accepts registrations rather than winners]
+    cursor.execute('''
+        UPDATE Matches
+            SET player_1_id = CASE
+                    WHEN player_1_id = ? THEN ?
+                    WHEN player_1_id = ? THEN ?
+                    ELSE player_1_id END,
+                player_2_id = CASE 
+                    WHEN player_2_id = ? THEN ?
+                    WHEN player_2_id = ? THEN ?
+                    ELSE player_2_id END
+        WHERE accepts_registered = 1
+    ''', 
+    (
+        user_id_1, user_id_2,
+        user_id_2, user_id_1,
+        user_id_1, user_id_2,
+        user_id_2, user_id_1
+    ))
+    
+    connection.commit()
+    connection.close()
+
+    return {'success': True}
+
+# Force withdraws a registered user
+@app.route('/api/remove_participant/<int:tournament_id>/<int:user_id>')
+@jwt_required()
+def remove_participants(tournament_id, user_id):
+    # Check for ownership
+    if not is_owner(int(get_jwt_identity()), tournament_id):
+        return {'success': False, 'msg': 'You do not own this tournament.'}
+
+    # Check for participant
+    if not is_in_tournament(user_id, tournament_id):
+        return {'success': False, 'msg': 'User is not in tournament.'}
+
+    # Force withdraw
+    return withdraw_user(tournament_id, user_id)
 
 ##############################
 if __name__ == '__main__':
