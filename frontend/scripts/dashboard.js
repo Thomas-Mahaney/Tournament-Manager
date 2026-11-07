@@ -244,7 +244,7 @@ window.onload = function() {
         let current = new Date().getTime()
         let started = (start - current) <= 0
         
-        // winner.disabled = !started
+        winner.disabled = !started
         swap.disabled = started
         remove.disabled = started
 

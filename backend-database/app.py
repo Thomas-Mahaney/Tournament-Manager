@@ -739,6 +739,11 @@ def declare_winner(tournament_id, match_number, user_id):
     connection = get_connection()
     cursor = connection.cursor()
 
+    # Check if tournament has started
+    tournament = get_tournament_row(cursor, tournament_id)
+    if datetime.datetime.now() < from_db_time(tournament['start_time']):
+        return {'success': False, 'msg': 'Tournament has not started.'}
+
     # Start transaction
     cursor.execute('BEGIN TRANSACTION')
 
@@ -792,9 +797,14 @@ def swap_participants(tournament_id, user_id_1, user_id_2):
     if not (is_in_tournament(user_id_1, tournament_id) and is_in_tournament(user_id_2, tournament_id)):
         return {'success': False, 'msg': 'User is not in tournament.'}
 
-    # Get matches
+    # Start connection
     connection = get_connection()
     cursor = connection.cursor()
+
+    # Check if tournament hasn't started
+    tournament = get_tournament_row(cursor, tournament_id)
+    if datetime.datetime.now() >= from_db_time(tournament['start_time']):
+        return {'success': False, 'msg': 'Tournament has already started.'}
 
     # Swaps users. Bit convoluted but whatever.
     # Checks if id is equal to user 1, then swaps to user 2 and vice versa.
