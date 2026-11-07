@@ -63,3 +63,7 @@ button:disabled {
     cursor: pointer;
     color: blue;
 }
+
+.clickAllow.swapSelect {
+    color: green;
+}

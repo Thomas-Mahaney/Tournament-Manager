@@ -112,8 +112,8 @@ function deselectParticipants() {
     for (const match of dashboard_data.matches) {
         const { player_1, player_2 } = getPlayers(match.match_number)
 
-        player_1.classList.remove('clickAllow')
-        player_2.classList.remove('clickAllow')
+        player_1.className = null
+        player_2.className = null
 
         player_1.onclick = null
         player_2.onclick = null
@@ -125,7 +125,6 @@ function deselectParticipants() {
 function enableDeclareWinner() {
     selection_enabled = true
 
-    // Get all matches without winners
     for (const match of dashboard_data.matches) {
         // Skips empty matches or matches with winners.
         if (!match.player_1_id && !match.player_2_id) { continue; }
@@ -136,7 +135,7 @@ function enableDeclareWinner() {
 
         // local function for button update and functionality
         function updatePlayer(id) {
-            text = eval('player_' + id)
+            let text = eval('player_' + id)
             text.classList.add('clickAllow')
             text.onclick = function() {
                 if (!confirm('Declare ' + text.textContent + ' as the winner?')) { return; }
@@ -148,9 +147,53 @@ function enableDeclareWinner() {
                 .then(result => {
                     if (!result.ok) { return }
                     deselectParticipants()
-                    
                     updateMatchData(result.data.data)
                 })
+            }
+        }
+
+        if (match.player_1_id) { updatePlayer(1) }
+        if (match.player_2_id) { updatePlayer(2) }
+    }
+}
+
+function enableSwapPlayer() {
+    selection_enabled = true
+    let swap_user = null
+
+    for (const match of dashboard_data.matches) {
+        // Skips matches with winners and non-starting matches
+        if (match.winner_id) { continue; }
+        if (!match.accepts_registered) { continue; }
+
+        const { player_1, player_2 } = getPlayers(match.match_number)
+
+        // local function for button update and functionality
+        function updatePlayer(id) {
+            let text = eval('player_' + id)
+            let player_id = eval('match.player_' + id + '_id')
+
+            text.classList.add('clickAllow')
+            text.onclick = function() {
+                if (text.classList.contains('swapSelect')) {
+                    text.classList.remove('swapSelect')
+                    swap_id = null
+                } else if (swap_user) {
+                    if (!confirm('Swap ' + text.textContent + ' and ' + swap_user.user + '?')) { return; }
+                    authFetch(
+                        '/api/swap_participants/' + dashboard_data.tournament.tournament_id 
+                        + '/' + player_id
+                        + '/' + swap_user.id
+                    )
+                    .then(result => {
+                        if (!result.ok) { return }
+                        deselectParticipants()
+                        updateMatchData(result.data.data)
+                    })
+                } else {
+                    text.classList.add('swapSelect')
+                    swap_user = {'user': text.textContent, 'id': player_id}
+                }
             }
         }
 
@@ -166,7 +209,7 @@ window.onload = function() {
         let current = new Date().getTime()
         let started = (start - current) <= 0
         
-        winner.disabled = !started
+        // winner.disabled = !started
         swap.disabled = started
         remove.disabled = started
 
@@ -199,11 +242,19 @@ winner.onclick = function() {
 }
 
 swap.onclick = function() {
-
+    if (selection_enabled) {
+        deselectParticipants()
+    } else {
+        enableSwapPlayer()
+    }
 }
 
 remove.onclick = function() {
-
+    if (selection_enabled) {
+        deselectParticipants()
+    } else {
+        enableDeclareWinner()
+    }
 }
 
 // Get Buttons working

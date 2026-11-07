@@ -819,11 +819,20 @@ def swap_participants(tournament_id, user_id_1, user_id_2):
         user_id_1, user_id_2,
         user_id_2, user_id_1
     ))
-    
+
+    # Commit changes
     connection.commit()
+
+    # Get matches to return then close connection
+    cursor.execute('''
+        SELECT * FROM Matches 
+        WHERE tournament_id = ? AND accepts_registered = 1
+        AND ((player_1_id = ? OR player_2_id = ?) OR (player_1_id = ? OR player_2_id = ?))
+    ''', (tournament_id, user_id_1, user_id_1, user_id_2, user_id_2))
+    results = get_results(cursor.fetchall())
     connection.close()
 
-    return {'success': True}
+    return {'success': True, 'data': results}
 
 # Force withdraws a registered user
 @app.route('/api/remove_participant/<int:tournament_id>/<int:user_id>')
