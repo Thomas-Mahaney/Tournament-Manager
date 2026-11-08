@@ -37,14 +37,18 @@
             </select>
 
             <label><input type="checkbox" name="open"> Open for registration</label>
-          <button type="submit">Apply</button>
+            <label><input type="checkbox" name="has_spots"> Has open spots</label>
+            <label><input type="checkbox" name="past"> Include started tournaments</label>
+
+            <button type="submit">Apply</button>
           <button type="button" id="filter-clear">Clear</button>
         </form>
         <div id="tournament-list"></div>
         <div id="page-select">
-            <button id="page-back"><</button>
-            <span id="page-counter">1</span>
-            <button id="page-next">></button>
+            <button id="page-back">&lt;</button>
+            <span id="page-counter">Page 1</span>
+            <button id="page-next">&gt;</button>
+
         </div>
     </body>
 

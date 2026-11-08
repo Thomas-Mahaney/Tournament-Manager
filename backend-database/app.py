@@ -16,7 +16,7 @@ load_dotenv()
 # Constant variables used for database functions
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # Folder this file is in, so the database is found no matter where the server is started from
 DATABASE_NAME = os.path.join(BASE_DIR, 'test_database.db') # Name of the database the program will interact with
-ENTRY_PER_PAGE = 5.0 # How many database entries will appear on each page of the list
+ENTRY_PER_PAGE = 5 # How many database entries will appear on each page of the list
 #Tournament Rules
 SKILL_LEVELS = ['Beginner', 'Intermediate', 'Expert'] # Allowed skill levels, in the order dropdowns show them
 MIN_PLAYER_CAP = 2
@@ -40,6 +40,12 @@ REGISTRATION_COLUMNS = f'''
         WHERE p.tournament_id = Tournament.tournament_id AND p.status = 'registered') AS registered_count,
     (SELECT COUNT(*) FROM Participants p
         WHERE p.tournament_id = Tournament.tournament_id AND p.status = 'waitlisted') AS waitlist_count
+'''
+# Added to the list queries so each row also says how many results there are across all pages.
+# COUNT(*) OVER () counts every row that matched the filters, before LIMIT cuts the list down to one page.
+PAGE_COLUMNS = f'''
+    COUNT(*) OVER () AS total_results,
+    (COUNT(*) OVER () + {ENTRY_PER_PAGE} - 1) / {ENTRY_PER_PAGE} AS total_pages
 '''
 
 # A waitlisted player's place in line (1 = next to be promoted). Used inside queries where the player's
@@ -68,21 +74,27 @@ def get_connection():
     connection.row_factory = sqlite3.Row
     return connection
 
+# Escapes the characters LIKE treats as wildcards, so searching "100%" looks for a real % sign
+def escape_like(text):
+    return text.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
 # Build a WHERE clause from the filters given in the url
 # Values are passed separately as ? parameters so user input never ends up inside the SQL itself
-def build_filters(args):
+# hide_past: leave out tournaments that already started, unless the url asks for them (used by the home page)
+def build_filters(args, hide_past=False):
     conditions = []
     values = []
 
-    # Search matches anywhere in the title or description
+    # Search matches anywhere in the title, description, game or location
     search = args.get('search', '').strip()
     if search:
-        conditions.append('(title LIKE ? OR description LIKE ?)')
-        values += ['%' + search + '%', '%' + search + '%']
+        pattern = '%' + escape_like(search) + '%'
+        conditions.append("(title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR game LIKE ? ESCAPE '\\' OR location LIKE ? ESCAPE '\\')")
+        values += [pattern, pattern, pattern, pattern]
 
-    # Exact match filters picked from dropdowns
+    # Exact match filters picked from dropdowns. Game ignores upper/lower case, so "chess" finds "Chess".
     if args.get('game'):
-        conditions.append('game = ?')
+        conditions.append('game = ? COLLATE NOCASE')
         values.append(args.get('game'))
 
     if args.get('skill_level'):
@@ -92,6 +104,16 @@ def build_filters(args):
     # Only show tournaments that are still taking registrations
     if args.get('open') == 'true':
         conditions.append("deadline > datetime('now', 'localtime')")
+    
+    # Only show tournaments that still have confirmed spots left
+    if args.get('has_spots') == 'true':
+        conditions.append('''player_cap > (SELECT COUNT(*) FROM Participants p
+            WHERE p.tournament_id = Tournament.tournament_id AND p.status = 'registered')''')
+
+    # Tournaments that already started are hidden unless asked for
+    if hide_past and args.get('past') != 'true':
+        conditions.append("start_time > datetime('now', 'localtime')")
+
 
     if not conditions:
         return '', values
@@ -582,11 +604,13 @@ def get_tournaments(page):
     cursor = connection.cursor()
     
     # Query current page of tournaments
-    where, values = build_filters(request.args)
+    where, values = build_filters(request.args, hide_past=True)
     cursor.execute('''
         SELECT *,
-        ''' + REGISTRATION_COLUMNS + '''
+        ''' + REGISTRATION_COLUMNS + ''',
+        ''' + PAGE_COLUMNS + '''
         FROM Tournament
+
         ''' + where + '''
         ORDER BY ''' + get_order_by(request.args) + '''
         LIMIT ? OFFSET ?;
@@ -607,8 +631,9 @@ def get_filter_options():
     connection = get_connection()
     cursor = connection.cursor()
     
-    games = [row['game'] for row in cursor.execute('SELECT DISTINCT game FROM Tournament ORDER BY game;')]
-    
+    # COLLATE NOCASE makes "Chess" and "chess" count as one game
+    games = [row[0] for row in cursor.execute('SELECT DISTINCT game COLLATE NOCASE FROM Tournament ORDER BY 1;')]
+
     connection.close()
     
     return jsonify({'games': games, 'skill_levels': SKILL_LEVELS})
@@ -726,7 +751,9 @@ def get_joined(page):
 
     where, values = build_filters(request.args)
     cursor.execute('''SELECT Tournament.*, Participants.status,
-    ''' + REGISTRATION_COLUMNS + '''
+    ''' + REGISTRATION_COLUMNS + ''',
+    ''' + PAGE_COLUMNS + '''
+
     FROM Tournament INNER JOIN Participants
     ON Participants.user_id = ? AND Participants.tournament_id = Tournament.tournament_id AND Participants.status <> 'withdrawn'
     ''' + where + '''
@@ -757,9 +784,11 @@ def get_owned(page):
         keyword = 'WHERE'
     cursor.execute('''
         SELECT *,
-        ''' + REGISTRATION_COLUMNS + '''
+        ''' + REGISTRATION_COLUMNS + ''',
+        ''' + PAGE_COLUMNS + '''
         FROM Tournament
         ''' + where + keyword + '''
+
         host_user_id = ? 
         ORDER BY ''' + get_order_by(request.args) + '''
         LIMIT ? OFFSET ?;
