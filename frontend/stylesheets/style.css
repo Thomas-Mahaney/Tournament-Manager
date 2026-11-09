@@ -67,3 +67,21 @@ button:disabled {
 .clickAllow.swapSelect {
     color: green;
 }
+
+#tournament-list {
+    display: grid; 
+    grid-template-columns: auto auto auto; 
+}
+
+#user-buttons {
+    float: right ;
+}
+
+.centered {
+    display: flex;
+    align-items: center;
+}
+
+#page-select {
+    justify-content: center;
+}

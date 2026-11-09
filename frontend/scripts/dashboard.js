@@ -25,7 +25,7 @@ function getDashboardData() {
     return authFetch('/api/get_dashboard_data/' + id)
     .then(result => {
         if (result.ok) {
-            dashboard_data = result.data            
+            dashboard_data = result.data   
         }
 
         // Shows the error message or page depending on if fetch was successful.
@@ -58,7 +58,9 @@ function loadLists() {
 
 // Creates tournament brackets
 function createBrackets() {
-    // Will be refactored or replaced later. Right now just used for basic functionality    
+    // Will be refactored or replaced later. Right now just used for basic functionality
+    dashboard_data.matches.sort((a, b) => a.match_number - b.match_number)  
+    console.log(dashboard_data.matches)
     for (const match of dashboard_data.matches) {
         const new_bracket = document.createElement('div')
         new_bracket.id = 'match_' + match.match_number
