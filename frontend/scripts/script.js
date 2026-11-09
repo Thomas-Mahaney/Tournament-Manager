@@ -3,16 +3,25 @@ const DEFAULT_PAGE = 1
 // Default sort, which the backend also uses when no sort is given
 const DEFAULT_SORT = 'start'
 // URL parameters used for filtering. These match the names of the inputs in the filter form.
-const FILTERS = ['search', 'game', 'skill_level', 'open', 'sort']
+const FILTERS = ['search', 'game', 'skill_level', 'open', 'sort', 'has_spots', 'past']
+
+// Total number of pages, from the last results that loaded
+let totalPages = 1
+// Counts requests, so a slow older request can't overwrite the results of a newer one
+let latestRequest = 0
 
 // When page loads, we call the backend to get available tournaments and display them.
 function loadPageOfResults(api, page, replaceState, setDefault) {
+    const requestNumber = ++latestRequest
+
     // Calls backend api for tournaments matching the filters, and the user's registrations, at the same time
     const tournaments = fetch(API_URL + '/api/' + api  + '/' + page + '?' + getFilters(), {headers: getHeader()})
     .then(response => response.json()) // Parse response JSON into an array
 
     Promise.all([tournaments, getMyRegistrations()])
     .then(([data, registrations]) => {
+        // A newer request started while this one was loading (e.g. switching Owned/Joined quickly), so drop this one
+        if (requestNumber != latestRequest) { return null }
 
         // Do not show an empty page past the end of the results
         if (data.length == 0 && page != DEFAULT_PAGE) {
@@ -36,6 +45,7 @@ function loadPageOfResults(api, page, replaceState, setDefault) {
         // Get user id
         authFetch('/api/get_id')
         .then(result => {
+            if (requestNumber != latestRequest) { return null }
             // Go through each entry of our data and create html for it
             data.forEach(entry => {
                 // Create a new div to store event details into
@@ -64,10 +74,20 @@ function loadPageOfResults(api, page, replaceState, setDefault) {
             })
 
             updateURL({ page: page }, replaceState)
-            document.getElementById('page-counter').innerText = page
+            updatePager(page, data)
+
         })
     })
     .catch(message => console.error(message)) // Catch any errors and output them in the console
+}
+
+// Shows "Page 2 of 3 (12 tournaments)" and greys out the arrows that would go past either end
+function updatePager(page, data) {
+    totalPages = data.length ? data[0].total_pages : 1
+    const total = data.length ? data[0].total_results : 0
+    document.getElementById('page-counter').innerText = 'Page ' + page + ' of ' + totalPages + ' (' + total + (total == 1 ? ' tournament)' : ' tournaments)')
+    document.getElementById('page-back').disabled = page <= 1
+    document.getElementById('page-next').disabled = page >= totalPages
 }
 
 function newElement(id, elementType) {
@@ -152,6 +172,9 @@ function showFiltersInForm() {
     inputs.skill_level.value = params.get('skill_level') || ''
     inputs.sort.value = params.get('sort') || DEFAULT_SORT
     inputs.open.checked = params.get('open') == 'true'
+    inputs.has_spots.checked = params.get('has_spots') == 'true'
+    // Only the home page has this checkbox
+    if (inputs.past) { inputs.past.checked = params.get('past') == 'true' }
 }
 
 // Adds an option to a dropdown in the filter form
@@ -168,7 +191,11 @@ function loadFilterOptions() {
     .then(response => response.json())
     .then(data => {
         const inputs = document.getElementById('filter-form').elements
+        // Remove options from an earlier load (switching Owned/Joined loads them again), keeping the "All" option
+        inputs.game.length = 1
+        inputs.skill_level.length = 1
         data.games.forEach(game => addOption(inputs.game, game))
+
         data.skill_levels.forEach(level => addOption(inputs.skill_level, level))
     })
     .catch(message => console.error(message))
@@ -199,6 +226,8 @@ document.getElementById('filter-form').onsubmit = function(event) {
         skill_level: inputs.skill_level.value,
         sort: inputs.sort.value == DEFAULT_SORT ? '' : inputs.sort.value,   // Leave the default out of the url
         open: inputs.open.checked ? 'true' : '',
+        has_spots: inputs.has_spots.checked ? 'true' : '',
+        past: inputs.past && inputs.past.checked ? 'true' : '',
         page: DEFAULT_PAGE,
     })
     loadPageOfResults(PAGE_API, DEFAULT_PAGE, true)
@@ -206,7 +235,7 @@ document.getElementById('filter-form').onsubmit = function(event) {
 
 // Clear all filters and show every tournament again
 document.getElementById('filter-clear').onclick = function() {
-    updateURL({ search: '', game: '', skill_level: '', sort: '', open: '', page: DEFAULT_PAGE})
+    updateURL({ search: '', game: '', skill_level: '', sort: '', open: '', has_spots: '', past: '', page: DEFAULT_PAGE})
     showFiltersInForm()
     loadPageOfResults(PAGE_API, DEFAULT_PAGE, true)
 }
@@ -220,5 +249,6 @@ document.getElementById('page-back').onclick = function() {
 
 document.getElementById('page-next').onclick = function() {
     let page = getPage() + 1
+    if (page > totalPages) { return null }
     loadPageOfResults(PAGE_API, page)
 }

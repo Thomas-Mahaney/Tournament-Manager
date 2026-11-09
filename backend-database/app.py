@@ -16,7 +16,7 @@ load_dotenv()
 # Constant variables used for database functions
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # Folder this file is in, so the database is found no matter where the server is started from
 DATABASE_NAME = os.path.join(BASE_DIR, 'test_database.db') # Name of the database the program will interact with
-ENTRY_PER_PAGE = 9.0 # How many database entries will appear on each page of the list
+ENTRY_PER_PAGE = 5 # How many database entries will appear on each page of the list
 #Tournament Rules
 SKILL_LEVELS = ['Beginner', 'Intermediate', 'Expert'] # Allowed skill levels, in the order dropdowns show them
 MIN_PLAYER_CAP = 2
@@ -40,6 +40,12 @@ REGISTRATION_COLUMNS = f'''
         WHERE p.tournament_id = Tournament.tournament_id AND p.status = 'registered') AS registered_count,
     (SELECT COUNT(*) FROM Participants p
         WHERE p.tournament_id = Tournament.tournament_id AND p.status = 'waitlisted') AS waitlist_count
+'''
+# Added to the list queries so each row also says how many results there are across all pages.
+# COUNT(*) OVER () counts every row that matched the filters, before LIMIT cuts the list down to one page.
+PAGE_COLUMNS = f'''
+    COUNT(*) OVER () AS total_results,
+    (COUNT(*) OVER () + {ENTRY_PER_PAGE} - 1) / {ENTRY_PER_PAGE} AS total_pages
 '''
 
 # A waitlisted player's place in line (1 = next to be promoted). Used inside queries where the player's
@@ -68,21 +74,27 @@ def get_connection():
     connection.row_factory = sqlite3.Row
     return connection
 
+# Escapes the characters LIKE treats as wildcards, so searching "100%" looks for a real % sign
+def escape_like(text):
+    return text.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
 # Build a WHERE clause from the filters given in the url
 # Values are passed separately as ? parameters so user input never ends up inside the SQL itself
-def build_filters(args):
+# hide_past: leave out tournaments that already started, unless the url asks for them (used by the home page)
+def build_filters(args, hide_past=False):
     conditions = []
     values = []
 
-    # Search matches anywhere in the title or description
+    # Search matches anywhere in the title, description, game or location
     search = args.get('search', '').strip()
     if search:
-        conditions.append('(title LIKE ? OR description LIKE ?)')
-        values += ['%' + search + '%', '%' + search + '%']
+        pattern = '%' + escape_like(search) + '%'
+        conditions.append("(title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR game LIKE ? ESCAPE '\\' OR location LIKE ? ESCAPE '\\')")
+        values += [pattern, pattern, pattern, pattern]
 
-    # Exact match filters picked from dropdowns
+    # Exact match filters picked from dropdowns. Game ignores upper/lower case, so "chess" finds "Chess".
     if args.get('game'):
-        conditions.append('game = ?')
+        conditions.append('game = ? COLLATE NOCASE')
         values.append(args.get('game'))
 
     if args.get('skill_level'):
@@ -92,6 +104,16 @@ def build_filters(args):
     # Only show tournaments that are still taking registrations
     if args.get('open') == 'true':
         conditions.append("deadline > datetime('now', 'localtime')")
+    
+    # Only show tournaments that still have confirmed spots left
+    if args.get('has_spots') == 'true':
+        conditions.append('''player_cap > (SELECT COUNT(*) FROM Participants p
+            WHERE p.tournament_id = Tournament.tournament_id AND p.status = 'registered')''')
+
+    # Tournaments that already started are hidden unless asked for
+    if hide_past and args.get('past') != 'true':
+        conditions.append("start_time > datetime('now', 'localtime')")
+
 
     if not conditions:
         return '', values
@@ -118,8 +140,10 @@ def parse_form_time(value):
         return None
     return time.replace(second=0, microsecond=0, tzinfo=None)
 
-# Checks the create tournament form. Returns (data, None) if it's valid, or (None, error msg) if not.
-def validate_tournament_form(form):
+# Checks the tournament form. Returns (data, None) if it's valid, or (None, error msg) if not.
+# Pass the tournament's current database row as "existing" when editing, since the time rules are different.
+def validate_tournament_form(form, existing=None):
+
     data = {}
 
     # Required text fields, with a maximum length for each
@@ -153,11 +177,23 @@ def validate_tournament_form(form):
     deadline = parse_form_time(form.get('deadline'))
     if not start_time or not deadline:
         return None, 'Start time and registration deadline must both be valid dates.'
-    if start_time <= now:
-        return None, 'Start time must be in the future.'
-    if deadline <= now:
-        return None, 'Registration deadline must be in the future.'
+    if existing is None:
+        # New tournaments just have to be in the future
+        if start_time <= now:
+            return None, 'Start time must be in the future.'
+        if deadline <= now:
+            return None, 'Registration deadline must be in the future.'
+    else:
+        # When editing, a time only has to pass its check if the host is changing it. That way the host can
+        # still fix a typo in a tournament that starts soon, or one whose registration has already closed.
+        if start_time != from_db_time(existing['start_time']).replace(second=0):
+            earliest_start = now + datetime.timedelta(hours=WITHDRAW_CUTOFF_HOURS)
+            if start_time < earliest_start:
+                return None, f'Start time must be at least {WITHDRAW_CUTOFF_HOURS} hours from now.'
+        if deadline != from_db_time(existing['deadline']).replace(second=0) and deadline <= now:
+            return None, 'Registration deadline must be in the future.'
     if deadline > start_time:
+
         return None, 'Registration deadline must be before the start time.'
     data['start_time'] = start_time.strftime(TIME_FORMAT)
     data['deadline'] = deadline.strftime(TIME_FORMAT)
@@ -242,14 +278,63 @@ def add_to_match(cursor, user_id, tournament_id):
                 AND player_2_id IS NULL 
                 AND accepts_registered = 2 THEN ?
                 ELSE player_2_id END
-        WHERE match_number = (
+        WHERE tournament_id = ? AND match_number = (
             SELECT match_number FROM Matches 
-            WHERE tournament_id = ? AND (accepts_registered = 2 AND (player_1_id IS NULL OR player_2_id IS NULL))
-            OR (accepts_registered = 1 AND player_1_id IS NULL)
+            WHERE tournament_id = ? AND ((accepts_registered = 2 AND (player_1_id IS NULL OR player_2_id IS NULL))
+            OR (accepts_registered = 1 AND player_1_id IS NULL))
             ORDER BY match_number ASC
             LIMIT 1
         )
-    ''', (user_id, user_id, tournament_id))
+    ''', (user_id, user_id, tournament_id, tournament_id))
+
+
+# Builds the empty bracket for a tournament: player_cap - 1 matches, which fill up as players register.
+def create_matches(cursor, tournament_id, player_cap):
+    # Do math for match creation
+    rounds = math.ceil(math.log2(player_cap)) # number of rounds in tournament
+    player_log = (2 ** rounds) # Get next largest power of 2. Used for bye calculation
+    pullovers = math.ceil((player_log - player_cap) / 2) # Calculate byes and check how many round 2 matches will pull these leftover players.
+    match_count = player_cap - 1
+
+    # Create match array to store for later use
+    matches = []
+
+    # build our match list in reverse (start at the final and work our way back)
+    for iteration in range(rounds):
+        next_range = 2 ** iteration # How many matches will be in the next iteration
+        round_max = match_count - (next_range - 1) # Highest match in the current round. Used to calculate current match.
+        current_round = rounds - iteration # The current round.
+
+        for until_next_round in range(next_range, 0, -1):
+            current_match = round_max - (until_next_round - 1)
+
+            # Skip if match is less than 1 [Usually for byes]
+            if current_match < 1:
+                continue
+
+            # Check if the current match will accept registered players. If not, then a player can only be added to a match by winning another.
+            # Since player counts can sometimes be unequal, we need to sometimes start players at round 2.
+            # Accept all matches in round 1 or any match in round 2 that is within the number of pullovers.
+            # The given number equals the amount of registered users the match will accept.
+            accepts_registered = 0
+            if (current_round == 2 and until_next_round <= pullovers) or (current_round == 1):
+                if current_round == 2 and until_next_round == pullovers and (player_cap % 2 == 1):
+                    accepts_registered = 1
+                else:
+                    accepts_registered = 2
+
+            # Gets next match.
+            parent_entry = math.floor((len(matches) + 1) / 2)
+            next_match = None
+            if parent_entry != 0:
+                next_match = matches[parent_entry - 1][1]
+
+            # Build match tuple.
+            matches.append((tournament_id, current_match, current_round, accepts_registered, next_match))
+
+    # Add matches to database.
+    cursor.executemany(("INSERT INTO Matches (tournament_id, match_number, round_number, accepts_registered, next_match) VALUES (?, ?, ?, ?, ?)"), matches)
+
 
 # Checks if the given user owns the given tournament.
 def is_owner(user_id, tournament_id):
@@ -425,12 +510,6 @@ def create_tournament():
     if error:
         return fail(error)
 
-    # Do math for match creation
-    rounds = math.ceil(math.log2(data['player_cap'])) # number of rounds in tournament
-    player_log = (2 ** rounds) # Get next largest power of 2. Used for bye calculation
-    pullovers = math.ceil((player_log - data['player_cap']) / 2) # Calculate byes and check how many round 2 matches will pull these leftover players.
-    match_count = data['player_cap'] - 1
-
     # Insert the new tournament
     connection = get_connection()
     cursor = connection.cursor()
@@ -441,44 +520,7 @@ def create_tournament():
           data['start_time'], data['deadline'], data['location'], data['player_cap']))
     tournament_id = cursor.lastrowid    # This is the id SQLite gave the new row
 
-    # Create match array to store for later use
-    matches = []
-
-    # build our match list in reverse (start at the final and work our way back)
-    for iteration in range(rounds):
-        next_range = 2 ** iteration # How many matches will be in the next iteration
-        round_max = match_count - (next_range - 1) # Highest match in the current round. Used to calculate current match.
-        current_round = rounds - iteration # The current round.
-        
-        for until_next_round in range(next_range, 0, -1):
-            current_match = round_max - (until_next_round - 1)
-
-            # Skip if match is less than 1 [Usually for byes]
-            if current_match < 1:
-                continue
-
-            # Check if the current match will accept registered players. If not, then a player can only be added to a match by winning another.
-            # Since player counts can sometimes be unequal, we need to sometimes start players at round 2.
-            # Accept all matches in round 1 or any match in round 2 that is within the number of pullovers.
-            # The given number equals the amount of registered users the match will accept.
-            accepts_registered = 0
-            if (current_round == 2 and until_next_round <= pullovers) or (current_round == 1):
-                if current_round == 2 and until_next_round == pullovers and (data['player_cap'] % 2 == 1):
-                    accepts_registered = 1
-                else:
-                    accepts_registered = 2
-
-            # Gets next match.
-            parent_entry = math.floor((len(matches) + 1) / 2)
-            next_match = None
-            if parent_entry != 0:
-                next_match = matches[parent_entry - 1][1]
-
-            # Build match tuple.
-            matches.append((tournament_id, current_match, current_round, accepts_registered, next_match))
-
-    # Add matches to database.
-    cursor.executemany(("INSERT INTO Matches (tournament_id, match_number, round_number, accepts_registered, next_match) VALUES (?, ?, ?, ?, ?)"), matches)
+    create_matches(cursor, tournament_id, data['player_cap'])
 
     # Commit and close connection
     connection.commit()
@@ -486,6 +528,68 @@ def create_tournament():
 
     # 201 means "created". The frontend uses the id to open the new tournament's page.
     return jsonify({'success': True, 'tournament_id': tournament_id}), 201
+
+
+
+###############################
+# TOURNAMENT EDITING
+###############################
+
+# Lets the host change their tournament's details, up until it starts
+@app.route('/api/edit_tournament/<int:tournament_id>', methods=['POST'])
+@jwt_required()
+def edit_tournament(tournament_id):
+    user_id = int(get_jwt_identity())
+
+    # Everything happens in one locked transaction, so nobody can register halfway through an edit
+    with write_transaction() as cursor:
+        tournament = get_tournament_row(cursor, tournament_id)
+        if not tournament:
+            return fail('Tournament not found.', 404)
+        if tournament['host_user_id'] != user_id:
+            return fail('Only the host can edit this tournament.', 403)
+        if datetime.datetime.now() >= from_db_time(tournament['start_time']):
+            return fail('This tournament has already started, so it can no longer be edited.')
+
+        # Check the form. Passing the tournament in switches on the time rules for editing.
+        data, error = validate_tournament_form(request.form, tournament)
+        if error:
+            return fail(error)
+
+        # The cap can't drop below the players who are already confirmed
+        registered = count_registered(cursor, tournament_id)
+        if data['player_cap'] < registered:
+            return fail(f"Player cap can't be lower than the {registered} players already registered.")
+
+        # A new cap means a new bracket, which would erase any results already recorded
+        cap_changed = data['player_cap'] != tournament['player_cap']
+        if cap_changed:
+            cursor.execute('SELECT COUNT(*) FROM Matches WHERE tournament_id = ? AND winner_id IS NOT NULL', (tournament_id,))
+            if cursor.fetchone()[0] > 0:
+                return fail("The player cap can't change once match results have been recorded.")
+
+        cursor.execute('''
+            UPDATE Tournament
+            SET title = ?, game = ?, description = ?, skill_level = ?, start_time = ?, deadline = ?, location = ?, player_cap = ?
+            WHERE tournament_id = ?
+        ''', (data['title'], data['game'], data['description'], data['skill_level'], data['start_time'],
+              data['deadline'], data['location'], data['player_cap'], tournament_id))
+
+        # Rebuild the bracket for the new cap, then seat the confirmed players again in the order they signed up
+        if cap_changed:
+            cursor.execute('DELETE FROM Matches WHERE tournament_id = ?', (tournament_id,))
+            create_matches(cursor, tournament_id, data['player_cap'])
+            cursor.execute("SELECT user_id FROM Participants WHERE tournament_id = ? AND status = 'registered' ORDER BY registration_time, rowid",
+                           (tournament_id,))
+            for row in cursor.fetchall():
+                add_to_match(cursor, row['user_id'], tournament_id)
+
+        # A higher cap or a later start can open up places, so let waitlisted players move up.
+        # This reads the tournament again so it sees the new cap and start time.
+        promoted = promote_from_waitlist(cursor, get_tournament_row(cursor, tournament_id))
+
+    return jsonify({'success': True, 'promoted': promoted})
+
 
 ###################################
 # TOURNAMENT GETTERS
@@ -500,11 +604,13 @@ def get_tournaments(page):
     cursor = connection.cursor()
     
     # Query current page of tournaments
-    where, values = build_filters(request.args)
+    where, values = build_filters(request.args, hide_past=True)
     cursor.execute('''
         SELECT *,
-        ''' + REGISTRATION_COLUMNS + '''
+        ''' + REGISTRATION_COLUMNS + ''',
+        ''' + PAGE_COLUMNS + '''
         FROM Tournament
+
         ''' + where + '''
         ORDER BY ''' + get_order_by(request.args) + '''
         LIMIT ? OFFSET ?;
@@ -525,8 +631,9 @@ def get_filter_options():
     connection = get_connection()
     cursor = connection.cursor()
     
-    games = [row['game'] for row in cursor.execute('SELECT DISTINCT game FROM Tournament ORDER BY game;')]
-    
+    # COLLATE NOCASE makes "Chess" and "chess" count as one game
+    games = [row[0] for row in cursor.execute('SELECT DISTINCT game COLLATE NOCASE FROM Tournament ORDER BY 1;')]
+
     connection.close()
     
     return jsonify({'games': games, 'skill_levels': SKILL_LEVELS})
@@ -644,7 +751,9 @@ def get_joined(page):
 
     where, values = build_filters(request.args)
     cursor.execute('''SELECT Tournament.*, Participants.status,
-    ''' + REGISTRATION_COLUMNS + '''
+    ''' + REGISTRATION_COLUMNS + ''',
+    ''' + PAGE_COLUMNS + '''
+
     FROM Tournament INNER JOIN Participants
     ON Participants.user_id = ? AND Participants.tournament_id = Tournament.tournament_id AND Participants.status <> 'withdrawn'
     ''' + where + '''
@@ -675,9 +784,11 @@ def get_owned(page):
         keyword = 'WHERE'
     cursor.execute('''
         SELECT *,
-        ''' + REGISTRATION_COLUMNS + '''
+        ''' + REGISTRATION_COLUMNS + ''',
+        ''' + PAGE_COLUMNS + '''
         FROM Tournament
         ''' + where + keyword + '''
+
         host_user_id = ? 
         ORDER BY ''' + get_order_by(request.args) + '''
         LIMIT ? OFFSET ?;
