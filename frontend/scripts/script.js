@@ -85,7 +85,7 @@ function loadPageOfResults(api, page, replaceState, setDefault) {
 function updatePager(page, data) {
     totalPages = data.length ? data[0].total_pages : 1
     const total = data.length ? data[0].total_results : 0
-    document.getElementById('page-counter').innerText = 'Page ' + page + ' of ' + totalPages + ' (' + total + (total == 1 ? ' tournament)' : ' tournaments)')
+    document.getElementById('page-counter').innerText = 'Page ' + page + '/' + totalPages + ' (' + total + (total == 1 ? ' Tournament)' : ' Tournaments)')
     document.getElementById('page-back').disabled = page <= 1
     document.getElementById('page-next').disabled = page >= totalPages
 }

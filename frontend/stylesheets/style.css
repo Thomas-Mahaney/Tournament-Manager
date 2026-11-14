@@ -1,5 +1,10 @@
+html, button, select, input {
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+}
+
 body {
     background-color: #f0f0f0;
+    margin: 0;
 }
 
 .tournament {
@@ -7,7 +12,7 @@ body {
     border: 1px solid #ccc;
     border-radius: 6px;
     padding: 12px;
-    margin-bottom: 12px;
+    margin: 10px;
     max-width: 500px;
 }
 
@@ -17,6 +22,22 @@ body {
 
 #filter-form {
     margin: 12px 0;
+    display: flex;
+    justify-content: center;
+}
+
+#filter-form > div {
+    float: inline-start;
+    margin: 2px;
+    border: 2px solid #b9b9b9;
+}
+
+#filter-form label {
+    float: inline-start;
+}
+
+#filter-form select {
+    height: 22px;
 }
 
 #error-message {
@@ -43,7 +64,6 @@ body {
 #tournament-form button {
     margin-top: 16px;
 }
-
 
 /* Register / withdraw area on each tournament */
 .registration-status {
@@ -74,7 +94,8 @@ button:disabled {
 }
 
 #user-buttons {
-    float: right ;
+    float: right;
+    margin-left: auto;
 }
 
 .centered {
@@ -84,4 +105,25 @@ button:disabled {
 
 #page-select {
     justify-content: center;
+}
+
+#page-select span {
+    margin: 0px 10px 0px 10px;
+}
+
+.navbar {
+    background-color: #c0c0c0;
+    overflow: hidden;
+    border-bottom: 2px solid #a0a0a0;
+    padding: 0px 20px 0px 20px;
+    box-sizing: border-box;
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+#title {
+    float: left;
+    align-items: center;
+    margin-right: 10px;
 }

@@ -9,11 +9,11 @@ function toDate(value) {
 // Create a paragraph like "Players: 8 / 10 · 2 on waitlist"
 function newPlayerCount(tournament) {
     const p = document.createElement('p')
-    let text = 'Players: ' + tournament.registered_count + ' / ' + tournament.player_cap
+    let text = '<b>Players:</b> ' + tournament.registered_count + ' / ' + tournament.player_cap
     if (tournament.waitlist_count > 0) {
         text += ' · ' + tournament.waitlist_count + ' on waitlist'
     }
-    p.innerText = text
+    p.innerHTML = text
     return p
 }
 
