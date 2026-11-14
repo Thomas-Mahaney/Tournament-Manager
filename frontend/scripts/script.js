@@ -37,8 +37,9 @@ function loadPageOfResults(api, page, replaceState, setDefault) {
 
         // Let the user know if nothing matched their filters
         if (data.length == 0) {
-            const message = document.createElement('p')
-            message.innerText = 'No tournaments match your filters.'
+            const message = document.createElement('h2')
+            message.id = 'empty-message'
+            message.innerText = 'No tournaments found.'
             list.appendChild(message)
         }
 

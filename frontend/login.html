@@ -7,23 +7,25 @@
         <meta charset="UTF-8">
         <title>Login</title>
         <link rel="stylesheet" href="stylesheets/style.css">
+        <link rel="stylesheet" href="stylesheets/login.css">
     </head>
 
     <body>
-        <h1>Login</h1>
-        <p id="error-message"></p>
-        <div>
-            
+        <div class="login-container">
+            <h1>Login</h1>
+            <p id="error-message"></p>
+            <form id="login-form">
+                <label for="username">Username: </label>
+                <input type="text" id="username" name="username" required /><br/>
+                <label for="password">Password: </label>
+                <input type="password" id="password" name="password" required><br/>
+                <button type="submit" name="submit">Submit</button>
+            </form>
+            <button onclick="location.href='/'">Back</button>
+            <div id="link">
+                <a href="signup.html">Don't have an account? Signup.</a>
+            </div>
         </div>
-        <form id="login-form">
-            <label for="username">Username: </label>
-            <input type="text" id="username" name="username" required /><br/>
-            <label for="password">Password: </label>
-            <input type="password" id="password" name="password" required><br/>
-            <button type="submit" name="submit">Submit</button>
-        </form>
-        <br>
-        <button onclick="location.href='/'">Back</button>
     </body>
 
     <script src="scripts/login.js"></script>

@@ -6,6 +6,7 @@ const waitlist_list = document.getElementById('waitlist')
 const winner = document.getElementById('winner')
 const swap = document.getElementById('swap')
 const remove = document.getElementById('remove')
+const edit = document.getElementById('edit')
 
 var selection_enabled = false
 
@@ -273,6 +274,7 @@ window.onload = function() {
             winner.disabled = !started
             swap.disabled = started
             remove.disabled = started
+            edit.disabled = started
 
             // Add hover text for disabled buttons
             if (!started) {
@@ -281,6 +283,7 @@ window.onload = function() {
                 let highlight = "Only available before the tournament has begun."
                 swap.title = highlight
                 remove.title = highlight
+                edit.title = highlight
             }
 
             // Update title and time
@@ -325,6 +328,6 @@ remove.onclick = function() {
 }
 
 // Opens the page for editing this tournament
-document.getElementById('edit').onclick = function() {
+edit.onclick = function() {
     location.href = 'edit.html?id=' + new URLSearchParams(window.location.search).get('id')
 }
