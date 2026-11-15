@@ -20,7 +20,6 @@ function loadTournament() {
         // Clear old content, since this also runs again after registering or withdrawing
         details.replaceChildren()
         document.getElementById('tournament-title').innerText = tournament.title
-        document.title = tournament.title
 
         // Description gets it's own paragraph above the other details
         const description = document.createElement('p')
