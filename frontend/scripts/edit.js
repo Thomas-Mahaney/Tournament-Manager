@@ -63,7 +63,7 @@ function start() {
         }
         else {
             fillForm(tournament)
-            hint.innerText = 'Players registered so far: ' + tournament.registered_count + '. The player cap can\'t go lower than that.'
+            hint.innerText = "Player cap can't go below registered players: " + tournament.registered_count
             form.hidden = false
         }
     })

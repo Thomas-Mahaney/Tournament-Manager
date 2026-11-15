@@ -44,10 +44,6 @@ body {
 }
 
 /* Create tournament form: one field per line */
-#tournament-form {
-    max-width: 400px;
-}
-
 #tournament-form label {
     display: block;
     margin-top: 10px;
@@ -121,11 +117,7 @@ button:disabled {
     align-items: center;
 }
 
-.navbar > * {
-    border: 2px solid black;
-}
-
-#title {
+#site-title {
     float: left;
     align-items: center;
     margin-right: 5px;
@@ -133,4 +125,8 @@ button:disabled {
 
 #empty-message {
     margin-left: 10px;
+}
+
+a:visited {
+    color: blue;
 }
