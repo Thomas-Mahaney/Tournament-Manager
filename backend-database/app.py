@@ -893,7 +893,6 @@ def declare_winner(tournament_id, match_number, user_id):
     # Add winner to next match
 
     next_match_string = "(SELECT next_match FROM Matches WHERE tournament_id = ? AND match_number = ?)"
-
     cursor.execute('''
         UPDATE Matches
             SET player_1_id = CASE 

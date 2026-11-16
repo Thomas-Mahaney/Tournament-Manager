@@ -7,6 +7,7 @@ const winner = document.getElementById('winner')
 const swap = document.getElementById('swap')
 const remove = document.getElementById('remove')
 const edit = document.getElementById('edit')
+const tourney_winner = document.getElementById('tourney-winner')
 
 var selection_enabled = false
 
@@ -59,28 +60,90 @@ function loadLists() {
 
 // Creates tournament brackets
 function createBrackets() {
-    // Will be refactored or replaced later. Right now just used for basic functionality
-    dashboard_data.matches.sort((a, b) => a.match_number - b.match_number)  
-    console.log(dashboard_data.matches)
+    // Sort matches so that they're in order
+    dashboard_data.matches.sort((a, b) => a.match_number - b.match_number)
+    
+    // Element that stores round headers
+    const rounds = document.getElementById('Rounds')
+    
+    // Counter for second pass of first rounds. Incrments for every first round match present.
+    var existing_matches = 0
+
+    // Loop through all matches and visualize them
     for (const match of dashboard_data.matches) {
+        // Check if we've entered a new round
+        var round_container = document.getElementById('round_' + match.round_number)
+        if (!round_container) {
+            // Create new round container if it doesn't exist
+            round_container = document.createElement('td')
+            round_container.id = 'round_' + match.round_number
+            round_container.classList.add('round')
+            match_div.appendChild(round_container)
+
+            // Create new round header
+            const round_num = document.createElement('th')
+            round_num.textContent = 'Round: ' + match.round_number
+            rounds.appendChild(round_num)
+        }
+
+        // Increment counter if needed
+        if (match.round_number == 1) {
+            existing_matches += 1
+        }
+
+        // Create new match container
         const new_bracket = document.createElement('div')
         new_bracket.id = 'match_' + match.match_number
+        new_bracket.classList.add('match')
 
-        const match_id = document.createElement('h3')
-        match_id.textContent = 'Match: ' + match.match_number + ', Round: ' + match.round_number
-
+        // Display both players in match
         const player_1 = document.createElement('p')
         player_1.id = 'player_1_' + match.match_number
         const player_2 = document.createElement('p')
         player_2.id = 'player_2_' + match.match_number
 
-        new_bracket.appendChild(match_id)
+        // Create match header
+        const match_num = document.createElement('h3')
+        match_num.textContent = 'Match: ' + match.match_number
+
+        // Append elements
+        new_bracket.appendChild(match_num)
         new_bracket.appendChild(player_1)
         new_bracket.appendChild(player_2)
-        match_div.appendChild(new_bracket)
+        round_container.appendChild(new_bracket)
 
+        // Updates inside of match display.
         updateMatch(match)
     }
+
+    // Add special hidden divs to first round so that elements are spaced correctly
+    // Get total number of rounds that can be fit in round 1
+    var total_matches = (2 ** Math.ceil(Math.log2(dashboard_data.tournament.player_cap))) / 2
+    
+    // Add blank matches for each match that doesn't exist in round 1.
+    for (i = 0; i < total_matches - existing_matches; i++) {
+        const new_bracket = document.createElement('div')
+        new_bracket.classList.add('match')
+        new_bracket.style = 'visibility: hidden;'
+
+        // Display both players in match
+        const match_num = document.createElement('h3')
+        match_num.textContent = 'Empty'
+        
+        const player_1 = document.createElement('p')
+        const player_2 = document.createElement('p')
+        player_1.textContent = 'Empty'
+        player_2.textContent = 'Empty'
+
+        new_bracket.appendChild(match_num)
+        new_bracket.appendChild(player_1)
+        new_bracket.appendChild(player_2)
+        document.getElementById('round_1').appendChild(new_bracket)
+    }
+
+    // move winner section to the end
+    match_div.appendChild(tourney_winner.parentElement)
+    rounds.appendChild(document.getElementById('winner-header'))
 }
 
 // Gets the player texts in a bracket
@@ -93,19 +156,38 @@ function getPlayers(match_num) {
 
 // Updates match display
 function updateMatch(match) {
+    // get players
     const { player_1, player_2 } = getPlayers(match.match_number)
 
+    // find users using participant ids
     const user1 = dashboard_data.participants.find(user => user.user_id == match.player_1_id)
     const user2 = dashboard_data.participants.find(user => user.user_id == match.player_2_id)
 
+    // update usernames
     player_1.textContent = user1 ? user1['username'] : 'Empty'
     player_2.textContent = user2 ? user2['username'] : 'Empty'
 
+    // check if match has winner
     if (match.winner_id) {
+        // holds winner's name
+        var winner_name = null
+
+        // makes winner's name bold
         if (match.winner_id == match.player_1_id) {
             player_1.style='font-weight: bold;'
+            winner_name = player_1.textContent
         } else if (match.winner_id == match.player_2_id) {
             player_2.style='font-weight: bold;'
+            winner_name = player_2.textContent
+        }
+
+        // updates winner section if this is the final match
+        if (match.match_number == dashboard_data.matches.length) {
+            tourney_winner.innerText = winner_name
+
+            // disable button
+            winner.disabled = true
+            winner.title = "A user has won the tournament."
         }
     }
 }

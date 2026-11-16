@@ -8,33 +8,50 @@
         <meta http-equiv='cache-control' content='no-cache'>
         <title>Dashboard</title>
         <link rel="stylesheet" href="stylesheets/style.css">
+        <link rel="stylesheet" href="stylesheets/dashboard.css">
+        <link rel="stylesheet" href="stylesheets/create.css">
     </head>
 
     <body>
-        <div id="disallowed" hidden>
+        <div id="disallowed" class="container" hidden>
             <h1>Unable to load tournament.</h1>
             <h2>This tournament may not exist or you do not have permission to view it.</h2>
             <button onclick="location.href='/'">Home</button>
         </div>
         <div id="allowed">
-            <div id="user-buttons">
-                <button id="back">&larr; Back</button>
-                <button id="edit">Edit Tournament</button>
+            <div id="info">
+                <h1 id="tournament-title" class="center">Loading...</h1>
+                <h3 id="start-time" class="center">Tournament Starts: </h2>
+
+                <div class="center buttons">
+                    <button id="back">&larr; Back</button>
+                    <button id="edit">Edit Tournament</button>
+                </div>
             </div>
-            <h1 id="tournament-title">Loading...</h1>
-            <h3 id="start-time">Tournament Starts: </h2>
-            <div id="tournament-matches"></div>
-            <div id="action-buttons">
+            
+            <table class="center">
+                <tr id="Rounds">
+                    <th id="winner-header">Winner</th>
+                </tr>
+                <tr id="tournament-matches">
+                    <td>
+                        <div id="tourney-winner" class="match">&nbsp</div>
+                    </td>
+                </tr>
+            </table>
+
+            <div id="action-buttons" class="center buttons">
                 <button id="winner">Declare Round Winner</button>
                 <button id="swap">Swap Participants</button>
                 <button id="remove">Remove Participant</button>
             </div>
-            <div id="user-lists">
-                <div>
+
+            <div id="user-lists" class="center">
+                <div id="register-list" class="list">
                     <h2>Registered</h2>
                     <ul id="registered"></ul>
                 </div>
-                <div>
+                <div id="wait-list" class="list">
                     <h2>Waitlist</h2>
                     <ul id="waitlist"></ul>
                 </div>
